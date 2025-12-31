@@ -1,0 +1,127 @@
+{% extends "layout.html" %}
+
+{% block title %}About - CivicTrack{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row">
+        <div class="col-lg-12">
+            <h1 class="text-center mb-4">About CivicTrack</h1>
+            <p class="lead text-center">Track. Resolve. Improve.</p>
+        </div>
+    </div>
+
+    <div class="row mt-5">
+        <div class="col-lg-6">
+            <h2>Our Mission</h2>
+            <p>CivicTrack is dedicated to bridging the gap between citizens and government officials by providing a transparent, efficient platform for reporting and managing urban issues. Our mission is to create smarter, more responsive cities through technology and data-driven decision making.</p>
+            
+            <h3 class="mt-4">What We Do</h3>
+            <ul>
+                <li>Enable citizens to report urban issues quickly and easily</li>
+                <li>Provide government officials with powerful tools for complaint management</li>
+                <li>Use AI to categorize and prioritize issues automatically</li>
+                <li>Offer real-time tracking and transparency</li>
+                <li>Generate insights through data analytics</li>
+            </ul>
+        </div>
+
+        <div class="col-lg-6">
+            <h2>How It Works</h2>
+            <div class="card mb-3">
+                <div class="card-body">
+                    <h5 class="card-title"><i class="fas fa-user-plus"></i> 1. Register</h5>
+                    <p class="card-text">Create your free account as a citizen or government official.</p>
+                </div>
+            </div>
+            
+            <div class="card mb-3">
+                <div class="card-body">
+                    <h5 class="card-title"><i class="fas fa-edit"></i> 2. Report</h5>
+                    <p class="card-text">Submit complaints with photos, location, and detailed descriptions.</p>
+                </div>
+            </div>
+            
+            <div class="card mb-3">
+                <div class="card-body">
+                    <h5 class="card-title"><i class="fas fa-tasks"></i> 3. Track</h5>
+                    <p class="card-text">Monitor the status of your complaints in real-time.</p>
+                </div>
+            </div>
+            
+            <div class="card mb-3">
+                <div class="card-body">
+                    <h5 class="card-title"><i class="fas fa-check-circle"></i> 4. Resolve</h5>
+                    <p class="card-text">Government officials work to resolve issues efficiently.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mt-5">
+        <div class="col-lg-12">
+            <h2 class="text-center">Key Features</h2>
+        </div>
+        <div class="col-lg-4 mt-4">
+            <div class="card h-100 text-center">
+                <div class="card-body">
+                    <i class="fas fa-robot fa-3x text-primary mb-3"></i>
+                    <h5 class="card-title">AI-Powered</h5>
+                    <p class="card-text">Automatic categorization and prioritization of complaints using machine learning.</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-4 mt-4">
+            <div class="card h-100 text-center">
+                <div class="card-body">
+                    <i class="fas fa-map-marked-alt fa-3x text-success mb-3"></i>
+                    <h5 class="card-title">Interactive Maps</h5>
+                    <p class="card-text">Visualize complaints on maps with heatmap visualization and geolocation.</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-4 mt-4">
+            <div class="card h-100 text-center">
+                <div class="card-body">
+                    <i class="fas fa-chart-line fa-3x text-info mb-3"></i>
+                    <h5 class="card-title">Advanced Analytics</h5>
+                    <p class="card-text">Comprehensive dashboards with charts, trends, and performance metrics.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mt-5 mb-5">
+        <div class="col-lg-12">
+            <h2 class="text-center">Why Choose CivicTrack?</h2>
+            <div class="row mt-4">
+                <div class="col-md-6">
+                    <ul class="list-group">
+                        <li class="list-group-item"><i class="fas fa-check text-success"></i> <strong>Transparency:</strong> Track every complaint from submission to resolution</li>
+                        <li class="list-group-item"><i class="fas fa-check text-success"></i> <strong>Efficiency:</strong> AI-powered categorization saves time and resources</li>
+                        <li class="list-group-item"><i class="fas fa-check text-success"></i> <strong>Accountability:</strong> Clear assignment and tracking of responsibilities</li>
+                    </ul>
+                </div>
+                <div class="col-md-6">
+                    <ul class="list-group">
+                        <li class="list-group-item"><i class="fas fa-check text-success"></i> <strong>Data-Driven:</strong> Make informed decisions with comprehensive analytics</li>
+                        <li class="list-group-item"><i class="fas fa-check text-success"></i> <strong>User-Friendly:</strong> Simple interface for both citizens and officials</li>
+                        <li class="list-group-item"><i class="fas fa-check text-success"></i> <strong>Responsive:</strong> Works seamlessly on desktop and mobile devices</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mt-5 mb-5 bg-light p-4 rounded">
+        <div class="col-lg-12 text-center">
+            <h2>Get Started Today</h2>
+            <p class="lead">Join thousands of citizens and government officials making cities better.</p>
+            <a href="{{ url_for('auth.register') }}" class="btn btn-primary btn-lg mr-2">Register Now</a>
+            <a href="{{ url_for('features') }}" class="btn btn-outline-primary btn-lg">Explore Features</a>
+        </div>
+    </div>
+</div>
+{% endblock %}

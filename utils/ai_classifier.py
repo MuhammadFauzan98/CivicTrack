@@ -13,7 +13,7 @@ class ComplaintClassifier:
     This is a simplified version. In production, you would use more advanced models.
     """
     
-    def __init__(self, model_path='models/classifier.pkl'):
+    def __init__(self, model_path='models/classifier/classifier.pkl'):
         self.model_path = model_path
         self.model = None
         self.vectorizer = None

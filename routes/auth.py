@@ -1,7 +1,7 @@
 from flask import Blueprint, render_template, redirect, url_for, flash, request, current_app
 from flask_login import login_user, logout_user, login_required, current_user
 from urllib.parse import urlparse
-from app import db
+from extensions import db
 from models.models import User
 from routes.forms import LoginForm, RegistrationForm
 
@@ -23,7 +23,7 @@ def safe_url_for(*endpoint_candidates, **values):
 def login():
     # If user is already authenticated, send them to the most likely dashboard
     if current_user.is_authenticated:
-        return redirect(safe_url_for('complaints.dashboard', 'admin.dashboard', 'dashboard', ))
+        return redirect(safe_url_for('complaints.dashboard', 'admin.dashboard', 'dashboard'))
 
     form = LoginForm()
     if form.validate_on_submit():
