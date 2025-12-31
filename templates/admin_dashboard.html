@@ -1,0 +1,440 @@
+{% extends "layout.html" %}
+
+{% block title %}Admin Dashboard - CivicTrack{% endblock %}
+
+{% block extra_css %}
+<style>
+    .quick-stats {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 15px;
+        margin-bottom: 30px;
+    }
+    
+    .quick-stat {
+        background-color: white;
+        padding: 15px;
+        border-radius: var(--radius);
+        box-shadow: var(--shadow);
+        text-align: center;
+    }
+    
+    .quick-stat h3 {
+        margin: 0;
+        font-size: 24px;
+        color: var(--primary);
+    }
+    
+    .quick-stat p {
+        margin: 5px 0 0;
+        font-size: 14px;
+        color: var(--gray);
+    }
+    
+    .department-card {
+        background-color: white;
+        padding: 20px;
+        border-radius: var(--radius);
+        box-shadow: var(--shadow);
+        margin-bottom: 20px;
+    }
+    
+    .department-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 15px;
+    }
+    
+    .progress-bar {
+        height: 8px;
+        background-color: #eee;
+        border-radius: 4px;
+        overflow: hidden;
+        margin-top: 10px;
+    }
+    
+    .progress-fill {
+        height: 100%;
+        background-color: var(--secondary);
+        border-radius: 4px;
+    }
+    
+    .action-buttons {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        margin-top: 20px;
+    }
+    
+    .priority-filter {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 20px;
+    }
+    
+    .priority-filter button {
+        padding: 5px 15px;
+        border: 1px solid #ddd;
+        background-color: white;
+        border-radius: 20px;
+        cursor: pointer;
+        transition: all 0.3s;
+    }
+    
+    .priority-filter button.active {
+        background-color: var(--secondary);
+        color: white;
+        border-color: var(--secondary);
+    }
+    
+    .complaint-filters {
+        display: flex;
+        gap: 15px;
+        margin-bottom: 20px;
+        flex-wrap: wrap;
+    }
+    
+    .filter-group {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    
+    .export-buttons {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 20px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="card-header">
+        <h1><i class="fas fa-tachometer-alt"></i> Government Admin Dashboard</h1>
+        <div class="action-buttons">
+            <a href="{{ url_for('admin.analytics') }}" class="btn btn-primary">
+                <i class="fas fa-chart-bar"></i> Analytics
+            </a>
+            <a href="{{ url_for('complaints.new_complaint') }}" class="btn btn-success">
+                <i class="fas fa-plus-circle"></i> Create Test Complaint
+            </a>
+            <button class="btn btn-outline" id="refreshData">
+                <i class="fas fa-sync-alt"></i> Refresh
+            </button>
+        </div>
+    </div>
+    
+    <!-- Quick Stats -->
+    <div class="quick-stats">
+        <div class="quick-stat" style="border-left: 4px solid var(--warning);">
+            <h3>{{ pending }}</h3>
+            <p>Pending Issues</p>
+        </div>
+        <div class="quick-stat" style="border-left: 4px solid var(--secondary);">
+            <h3>{{ in_progress }}</h3>
+            <p>In Progress</p>
+        </div>
+        <div class="quick-stat" style="border-left: 4px solid var(--success);">
+            <h3>{{ resolved }}</h3>
+            <p>Resolved</p>
+        </div>
+        <div class="quick-stat" style="border-left: 4px solid var(--primary);">
+            <h3>{{ total }}</h3>
+            <p>Total Issues</p>
+        </div>
+        <div class="quick-stat" style="border-left: 4px solid var(--accent);">
+            <h3>{{ departments|length }}</h3>
+            <p>Departments</p>
+        </div>
+    </div>
+    
+    <!-- Department-wise Stats -->
+    <div class="card">
+        <h2><i class="fas fa-building"></i> Department-wise Issue Distribution</h2>
+        
+        <div class="complaint-filters">
+            <div class="filter-group">
+                <label>Department:</label>
+                <select class="form-control" id="deptFilter" style="width: 200px;">
+                    <option value="">All Departments</option>
+                    {% for dept in departments %}
+                    <option value="{{ dept.name }}">{{ dept.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <div class="filter-group">
+                <label>Status:</label>
+                <select class="form-control" id="statusFilter" style="width: 150px;">
+                    <option value="">All Status</option>
+                    <option value="Pending">Pending</option>
+                    <option value="In Progress">In Progress</option>
+                    <option value="Resolved">Resolved</option>
+                </select>
+            </div>
+            
+            <div class="filter-group">
+                <label>Priority:</label>
+                <select class="form-control" id="priorityFilter" style="width: 150px;">
+                    <option value="">All Priority</option>
+                    <option value="Low">Low</option>
+                    <option value="Medium">Medium</option>
+                    <option value="High">High</option>
+                    <option value="Critical">Critical</option>
+                </select>
+            </div>
+            
+            <div class="filter-group">
+                <label>Date Range:</label>
+                <input type="date" class="form-control" id="dateFrom" style="width: 150px;">
+                <span>to</span>
+                <input type="date" class="form-control" id="dateTo" style="width: 150px;">
+            </div>
+        </div>
+        
+        {% for dept in departments %}
+        <div class="department-card" data-dept="{{ dept.name }}">
+            <div class="department-header">
+                <div>
+                    <h3>{{ dept.name }}</h3>
+                    <p>{{ dept.count }} issues assigned</p>
+                </div>
+                <a href="#" class="btn btn-outline btn-small">
+                    <i class="fas fa-eye"></i> View All
+                </a>
+            </div>
+            
+            <div class="progress-bar">
+                <div class="progress-fill" style="width: {% if total > 0 %}{{ (dept.count / total * 100)|round|int }}{% else %}0{% endif %}%;"></div>
+            </div>
+            
+            <div style="display: flex; justify-content: space-between; margin-top: 5px; font-size: 12px; color: var(--gray);">
+                <span>0%</span>
+                <span>{% if total > 0 %}{{ (dept.count / total * 100)|round|int }}{% else %}0{% endif %}%</span>
+                <span>100%</span>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    
+    <!-- Recent Complaints Table -->
+    <div class="card" style="margin-top: 30px;">
+        <div class="card-header">
+            <h2><i class="fas fa-history"></i> Recent Complaints</h2>
+            
+            <div class="export-buttons">
+                <button class="btn btn-outline btn-small" id="exportCSV">
+                    <i class="fas fa-file-csv"></i> Export CSV
+                </button>
+                <button class="btn btn-outline btn-small" id="exportPDF">
+                    <i class="fas fa-file-pdf"></i> Export PDF
+                </button>
+            </div>
+        </div>
+        
+        <div class="table-container">
+            <table id="complaintsTable">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Title</th>
+                        <th>Category</th>
+                        <th>Department</th>
+                        <th>Status</th>
+                        <th>Priority</th>
+                        <th>Citizen</th>
+                        <th>Date</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for complaint in complaints %}
+                    <tr data-dept="{{ complaint.department.name if complaint.department else 'Unassigned' }}"
+                        data-status="{{ complaint.status }}"
+                        data-priority="{{ complaint.priority }}"
+                        data-date="{{ complaint.created_at.strftime('%Y-%m-%d') }}">
+                        <td>#{{ complaint.id }}</td>
+                        <td>
+                            <a href="{{ url_for('admin.manage_complaint', id=complaint.id) }}">
+                                {{ complaint.title[:30] }}{% if complaint.title|length > 30 %}...{% endif %}
+                            </a>
+                        </td>
+                        <td>
+                            <span class="badge badge-secondary">
+                                {{ complaint.category|replace('_', ' ')|title }}
+                            </span>
+                        </td>
+                        <td>
+                            {% if complaint.department %}
+                                {{ complaint.department.name }}
+                            {% else %}
+                                <span class="text-muted">Unassigned</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <span class="status-badge status-{{ complaint.status|lower|replace(' ', '-') }}">
+                                {{ complaint.status }}
+                            </span>
+                        </td>
+                        <td>
+                            <span class="priority-badge priority-{{ complaint.priority|lower }}">
+                                {{ complaint.priority }}
+                            </span>
+                        </td>
+                        <td>
+                            {% if complaint.citizen %}
+                                {{ complaint.citizen.username }}
+                            {% else %}
+                                Anonymous
+                            {% endif %}
+                        </td>
+                        <td>{{ complaint.created_at.strftime('%Y-%m-%d') }}</td>
+                        <td>
+                            <a href="{{ url_for('admin.manage_complaint', id=complaint.id) }}" 
+                               class="btn btn-small btn-primary">
+                                <i class="fas fa-edit"></i> Manage
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        {% if not complaints %}
+        <div style="text-align: center; padding: 40px;">
+            <i class="fas fa-clipboard-list" style="font-size: 60px; color: var(--light); margin-bottom: 20px;"></i>
+            <h4>No Complaints Yet</h4>
+            <p>No complaints have been reported yet. When citizens report issues, they will appear here.</p>
+        </div>
+        {% endif %}
+    </div>
+    
+    <!-- Recent Feedback -->
+    {% if feedback %}
+    <div class="card" style="margin-top: 30px;">
+        <h2><i class="fas fa-comment-alt"></i> Recent Citizen Feedback</h2>
+        
+        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px;">
+            {% for fb in feedback %}
+            <div style="background-color: var(--light); padding: 15px; border-radius: var(--radius);">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                    <div>
+                        <strong>
+                            {% if fb.complaint %}
+                                {{ fb.complaint.title[:30] }}{% if fb.complaint.title|length > 30 %}...{% endif %}
+                            {% else %}
+                                Deleted Complaint
+                            {% endif %}
+                        </strong>
+                    </div>
+                    <div>
+                        {% for i in range(5) %}
+                            {% if i < fb.rating %}
+                                <i class="fas fa-star" style="color: var(--warning);"></i>
+                            {% else %}
+                                <i class="far fa-star" style="color: #ddd;"></i>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                </div>
+                
+                {% if fb.comment %}
+                <p style="font-size: 14px; margin-bottom: 10px;">"{{ fb.comment[:100] }}{% if fb.comment|length > 100 %}...{% endif %}"</p>
+                {% endif %}
+                
+                <div style="display: flex; justify-content: space-between; font-size: 12px; color: var(--gray);">
+                    <span>
+                        {% if fb.submitted_by %}
+                            User #{{ fb.submitted_by }}
+                        {% else %}
+                            Anonymous
+                        {% endif %}
+                    </span>
+                    <span>{{ fb.created_at.strftime('%Y-%m-%d') }}</span>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Filter functionality
+    const deptFilter = document.getElementById('deptFilter');
+    const statusFilter = document.getElementById('statusFilter');
+    const priorityFilter = document.getElementById('priorityFilter');
+    const dateFrom = document.getElementById('dateFrom');
+    const dateTo = document.getElementById('dateTo');
+    
+    const filterTable = () => {
+        const rows = document.querySelectorAll('#complaintsTable tbody tr');
+        const deptValue = deptFilter.value;
+        const statusValue = statusFilter.value;
+        const priorityValue = priorityFilter.value;
+        const dateFromValue = dateFrom.value;
+        const dateToValue = dateTo.value;
+        
+        rows.forEach(row => {
+            let show = true;
+            const dept = row.getAttribute('data-dept');
+            const status = row.getAttribute('data-status');
+            const priority = row.getAttribute('data-priority');
+            const date = row.getAttribute('data-date');
+            
+            if (deptValue && dept !== deptValue) show = false;
+            if (statusValue && status !== statusValue) show = false;
+            if (priorityValue && priority !== priorityValue) show = false;
+            if (dateFromValue && date < dateFromValue) show = false;
+            if (dateToValue && date > dateToValue) show = false;
+            
+            row.style.display = show ? '' : 'none';
+        });
+    };
+    
+    if (deptFilter) deptFilter.addEventListener('change', filterTable);
+    if (statusFilter) statusFilter.addEventListener('change', filterTable);
+    if (priorityFilter) priorityFilter.addEventListener('change', filterTable);
+    if (dateFrom) dateFrom.addEventListener('change', filterTable);
+    if (dateTo) dateTo.addEventListener('change', filterTable);
+    
+    // Set default dates (last 30 days)
+    const today = new Date();
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(today.getDate() - 30);
+    
+    if (dateFrom) {
+        dateFrom.value = thirtyDaysAgo.toISOString().split('T')[0];
+    }
+    if (dateTo) {
+        dateTo.value = today.toISOString().split('T')[0];
+    }
+    
+    // Export buttons
+    document.getElementById('exportCSV')?.addEventListener('click', function() {
+        showNotification('Exporting CSV... This feature is under development.', 'info');
+    });
+    
+    document.getElementById('exportPDF')?.addEventListener('click', function() {
+        showNotification('Exporting PDF... This feature is under development.', 'info');
+    });
+    
+    // Refresh button
+    document.getElementById('refreshData')?.addEventListener('click', function() {
+        showNotification('Refreshing data...', 'info');
+        setTimeout(() => {
+            location.reload();
+        }, 1000);
+    });
+    
+    // Initialize filters
+    filterTable();
+});
+</script>
+{% endblock %}

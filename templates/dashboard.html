@@ -1,0 +1,301 @@
+{% extends "layout.html" %}
+
+{% block title %}Dashboard - CivicTrack{% endblock %}
+
+{% block extra_css %}
+<style>
+    .complaint-card {
+        border-left: 4px solid;
+        margin-bottom: 20px;
+    }
+    .complaint-card.pending { border-left-color: var(--warning); }
+    .complaint-card.in-progress { border-left-color: var(--secondary); }
+    .complaint-card.resolved { border-left-color: var(--success); }
+    
+    .complaint-meta {
+        display: flex;
+        gap: 15px;
+        margin-top: 10px;
+        font-size: 14px;
+        color: var(--gray);
+    }
+    
+    .complaint-image {
+        width: 100%;
+        max-height: 200px;
+        object-fit: cover;
+        border-radius: var(--radius);
+        margin-top: 15px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="card-header">
+        <h2><i class="fas fa-tachometer-alt"></i> My Dashboard</h2>
+        <a href="{{ url_for('complaints.new_complaint') }}" class="btn btn-primary">
+            <i class="fas fa-plus-circle"></i> Report New Issue
+        </a>
+    </div>
+    
+    <!-- Stats Cards -->
+    <div class="stats-container">
+        <div class="stat-card total">
+            <i class="fas fa-clipboard-list"></i>
+            <span class="stat-number">{{ total }}</span>
+            <span class="stat-label">Total Complaints</span>
+        </div>
+        
+        <div class="stat-card pending">
+            <i class="fas fa-clock"></i>
+            <span class="stat-number">{{ pending }}</span>
+            <span class="stat-label">Pending</span>
+        </div>
+        
+        <div class="stat-card in-progress">
+            <i class="fas fa-tools"></i>
+            <span class="stat-number">{{ in_progress }}</span>
+            <span class="stat-label">In Progress</span>
+        </div>
+        
+        <div class="stat-card resolved">
+            <i class="fas fa-check-circle"></i>
+            <span class="stat-number">{{ resolved }}</span>
+            <span class="stat-label">Resolved</span>
+        </div>
+    </div>
+    
+    <!-- Quick Actions -->
+    <div class="card" style="margin-bottom: 30px;">
+        <h3><i class="fas fa-bolt"></i> Quick Actions</h3>
+        <div style="display: flex; gap: 15px; flex-wrap: wrap; margin-top: 15px;">
+            <a href="{{ url_for('complaints.new_complaint') }}" class="btn btn-primary">
+                <i class="fas fa-plus-circle"></i> Report New Issue
+            </a>
+            <a href="#recent" class="btn btn-outline">
+                <i class="fas fa-history"></i> View Recent Issues
+            </a>
+            <a href="{{ url_for('complaints.get_complaints_api') }}" class="btn btn-outline" id="viewOnMapBtn">
+                <i class="fas fa-map-marked-alt"></i> View on Map
+            </a>
+            <button class="btn btn-outline" id="downloadReportBtn">
+                <i class="fas fa-download"></i> Download Report
+            </button>
+        </div>
+    </div>
+    
+    <!-- Map Preview -->
+    <div class="card" style="margin-bottom: 30px;">
+        <h3><i class="fas fa-map-marked-alt"></i> Your Reported Issues Map</h3>
+        <div id="miniMap" class="map-container" style="height: 300px;"></div>
+    </div>
+    
+    <!-- Recent Complaints -->
+    <div class="card" id="recent">
+        <h3><i class="fas fa-history"></i> Recent Complaints</h3>
+        
+        {% if complaints %}
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Title</th>
+                        <th>Category</th>
+                        <th>Status</th>
+                        <th>Priority</th>
+                        <th>Date</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for complaint in complaints %}
+                    <tr>
+                        <td>#{{ complaint.id }}</td>
+                        <td>{{ complaint.title }}</td>
+                        <td>
+                            <span class="badge badge-secondary">
+                                {{ complaint.category|replace('_', ' ')|title }}
+                            </span>
+                        </td>
+                        <td>
+                            <span class="status-badge status-{{ complaint.status|lower|replace(' ', '-') }}">
+                                {{ complaint.status }}
+                            </span>
+                        </td>
+                        <td>
+                            <span class="priority-badge priority-{{ complaint.priority|lower }}">
+                                {{ complaint.priority }}
+                            </span>
+                        </td>
+                        <td>{{ complaint.created_at.strftime('%Y-%m-%d') }}</td>
+                        <td>
+                            <a href="{{ url_for('complaints.view_complaint', id=complaint.id) }}" 
+                               class="btn btn-small" 
+                               style="padding: 3px 8px;">
+                                <i class="fas fa-eye"></i> View
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div style="text-align: center; padding: 40px;">
+            <i class="fas fa-clipboard-list" style="font-size: 60px; color: var(--light); margin-bottom: 20px;"></i>
+            <h4>No Complaints Yet</h4>
+            <p>You haven't reported any issues yet. Start by reporting your first urban issue!</p>
+            <a href="{{ url_for('complaints.new_complaint') }}" class="btn btn-primary" style="margin-top: 20px;">
+                <i class="fas fa-plus-circle"></i> Report Your First Issue
+            </a>
+        </div>
+        {% endif %}
+    </div>
+    
+    <!-- Detailed Complaint Cards -->
+    <h3 style="margin-top: 30px; margin-bottom: 20px;">Detailed View</h3>
+    {% for complaint in complaints[:3] %}
+    <div class="card complaint-card {{ complaint.status|lower|replace(' ', '-') }}">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+            <div>
+                <h4>{{ complaint.title }}</h4>
+                <p>{{ complaint.description[:200] }}{% if complaint.description|length > 200 %}...{% endif %}</p>
+                
+                <div class="complaint-meta">
+                    <span><i class="fas fa-tag"></i> {{ complaint.category|replace('_', ' ')|title }}</span>
+                    <span><i class="fas fa-map-marker-alt"></i> {{ complaint.address[:30] }}{% if complaint.address|length > 30 %}...{% endif %}</span>
+                    <span><i class="fas fa-calendar"></i> {{ complaint.created_at.strftime('%b %d, %Y') }}</span>
+                </div>
+            </div>
+            
+            <div style="text-align: right;">
+                <span class="status-badge status-{{ complaint.status|lower|replace(' ', '-') }}" 
+                      style="display: block; margin-bottom: 10px;">
+                    {{ complaint.status }}
+                </span>
+                <a href="{{ url_for('complaints.view_complaint', id=complaint.id) }}" 
+                   class="btn btn-small btn-primary">
+                    <i class="fas fa-external-link-alt"></i> Details
+                </a>
+            </div>
+        </div>
+        
+        {% if complaint.image_path %}
+        <img src="{{ url_for('static', filename=complaint.image_path) }}" 
+             alt="Complaint Image" 
+             class="complaint-image">
+        {% endif %}
+    </div>
+    {% endfor %}
+    
+    {% if complaints|length > 3 %}
+    <div class="text-center" style="margin-top: 20px;">
+        <a href="#" class="btn btn-outline">
+            <i class="fas fa-list"></i> View All {{ total }} Complaints
+        </a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/map.js') }}"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize mini map with user's complaints
+    if (typeof L !== 'undefined') {
+        initializeUserComplaintsMap();
+    }
+    
+    // Download report button
+    document.getElementById('downloadReportBtn').addEventListener('click', function() {
+        showNotification('Generating report... This feature is under development.', 'info');
+    });
+    
+    // View on map button
+    document.getElementById('viewOnMapBtn').addEventListener('click', function(e) {
+        e.preventDefault();
+        
+        fetch('{{ url_for("complaints.get_complaints_api") }}')
+            .then(response => response.json())
+            .then(data => {
+                if (data.length > 0) {
+                    // Create a new page or modal with full map
+                    showNotification('Opening full map view...', 'info');
+                    // In a full implementation, this would open a modal or new page
+                } else {
+                    showNotification('No complaints to display on map.', 'warning');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showNotification('Error loading map data.', 'danger');
+            });
+    });
+});
+
+function initializeUserComplaintsMap() {
+    const map = L.map('miniMap').setView([20.5937, 78.9629], 5); // Default to India center
+    
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors'
+    }).addTo(map);
+    
+    // Fetch and display user's complaints
+    fetch('{{ url_for("complaints.get_complaints_api") }}')
+        .then(response => response.json())
+        .then(complaints => {
+            if (complaints.length === 0) {
+                // Show default message
+                const infoDiv = document.createElement('div');
+                infoDiv.innerHTML = `
+                    <div style="text-align: center; padding: 20px;">
+                        <i class="fas fa-map-marker-alt" style="font-size: 40px; color: #ccc; margin-bottom: 10px;"></i>
+                        <p>No complaints to display on map</p>
+                    </div>
+                `;
+                document.getElementById('miniMap').appendChild(infoDiv);
+                return;
+            }
+            
+            let bounds = [];
+            complaints.forEach(complaint => {
+                if (complaint.latitude && complaint.longitude) {
+                    const marker = L.marker([complaint.latitude, complaint.longitude]).addTo(map);
+                    
+                    // Customize marker based on status
+                    let iconColor;
+                    if (complaint.status === 'Resolved') iconColor = 'green';
+                    else if (complaint.status === 'In Progress') iconColor = 'blue';
+                    else iconColor = 'orange';
+                    
+                    marker.setIcon(L.divIcon({
+                        html: `<div style="background-color: ${iconColor}; width: 12px; height: 12px; border-radius: 50%; border: 2px solid white;"></div>`,
+                        iconSize: [16, 16]
+                    }));
+                    
+                    // Add popup
+                    marker.bindPopup(`
+                        <strong>${complaint.title}</strong><br>
+                        Status: ${complaint.status}<br>
+                        Priority: ${complaint.priority}<br>
+                        <small>${complaint.address}</small>
+                    `);
+                    
+                    bounds.push([complaint.latitude, complaint.longitude]);
+                }
+            });
+            
+            // Fit map to show all markers
+            if (bounds.length > 0) {
+                map.fitBounds(bounds);
+            }
+        })
+        .catch(error => {
+            console.error('Error loading complaints:', error);
+        });
+}
+</script>
+{% endblock %}

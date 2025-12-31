@@ -1,0 +1,568 @@
+{% extends "layout.html" %}
+
+{% block title %}Analytics - CivicTrack{% endblock %}
+
+{% block extra_css %}
+<style>
+    .analytics-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+        gap: 20px;
+        margin-bottom: 30px;
+    }
+    
+    .chart-card {
+        background-color: white;
+        border-radius: var(--radius);
+        box-shadow: var(--shadow);
+        padding: 20px;
+        height: 350px;
+    }
+    
+    .chart-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+    }
+    
+    .time-filter {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 30px;
+    }
+    
+    .time-filter button {
+        padding: 8px 16px;
+        border: 1px solid #ddd;
+        background-color: white;
+        border-radius: var(--radius);
+        cursor: pointer;
+        transition: all 0.3s;
+    }
+    
+    .time-filter button.active {
+        background-color: var(--secondary);
+        color: white;
+        border-color: var(--secondary);
+    }
+    
+    .metric-cards {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 20px;
+        margin-bottom: 30px;
+    }
+    
+    .metric-card {
+        background-color: white;
+        border-radius: var(--radius);
+        box-shadow: var(--shadow);
+        padding: 20px;
+        text-align: center;
+    }
+    
+    .metric-card .value {
+        font-size: 32px;
+        font-weight: bold;
+        margin: 10px 0;
+        color: var(--primary);
+    }
+    
+    .metric-card .label {
+        color: var(--gray);
+        font-size: 14px;
+    }
+    
+    .metric-card .trend {
+        font-size: 12px;
+        margin-top: 10px;
+    }
+    
+    .trend.positive {
+        color: var(--success);
+    }
+    
+    .trend.negative {
+        color: var(--danger);
+    }
+    
+    .heatmap-container {
+        height: 500px;
+        border-radius: var(--radius);
+        overflow: hidden;
+        margin-bottom: 20px;
+    }
+    
+    .legend {
+        display: flex;
+        justify-content: center;
+        gap: 20px;
+        margin-top: 10px;
+    }
+    
+    .legend-item {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        font-size: 14px;
+    }
+    
+    .legend-color {
+        width: 15px;
+        height: 15px;
+        border-radius: 3px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="card-header">
+        <h1><i class="fas fa-chart-bar"></i> Analytics Dashboard</h1>
+        <div style="display: flex; gap: 10px;">
+            <button class="btn btn-primary" id="refreshAnalytics">
+                <i class="fas fa-sync-alt"></i> Refresh
+            </button>
+            <button class="btn btn-outline" id="downloadReport">
+                <i class="fas fa-download"></i> Download Report
+            </button>
+        </div>
+    </div>
+    
+    <!-- Time Filter -->
+    <div class="time-filter">
+        <button class="active" data-period="7">Last 7 Days</button>
+        <button data-period="30">Last 30 Days</button>
+        <button data-period="90">Last 90 Days</button>
+        <button data-period="365">Last Year</button>
+        <button data-period="all">All Time</button>
+    </div>
+    
+    <!-- Key Metrics -->
+    <div class="metric-cards" id="metricsContainer">
+        <div class="metric-card">
+            <i class="fas fa-clock" style="font-size: 24px; color: var(--warning);"></i>
+            <div class="value" id="avgResolutionTime">--</div>
+            <div class="label">Avg. Resolution Time (Days)</div>
+            <div class="trend positive" id="resolutionTrend">--</div>
+        </div>
+        
+        <div class="metric-card">
+            <i class="fas fa-check-circle" style="font-size: 24px; color: var(--success);"></i>
+            <div class="value" id="resolutionRate">--%</div>
+            <div class="label">Resolution Rate</div>
+            <div class="trend positive" id="rateTrend">--</div>
+        </div>
+        
+        <div class="metric-card">
+            <i class="fas fa-users" style="font-size: 24px; color: var(--secondary);"></i>
+            <div class="value" id="activeCitizens">--</div>
+            <div class="label">Active Citizens</div>
+            <div class="trend positive" id="citizensTrend">--</div>
+        </div>
+        
+        <div class="metric-card">
+            <i class="fas fa-star" style="font-size: 24px; color: var(--accent);"></i>
+            <div class="value" id="avgRating">--</div>
+            <div class="label">Avg. Citizen Rating</div>
+            <div class="trend positive" id="ratingTrend">--</div>
+        </div>
+    </div>
+    
+    <!-- Charts Grid -->
+    <div class="analytics-grid">
+        <div class="chart-card">
+            <div class="chart-header">
+                <h3>Issues by Category</h3>
+                <select class="form-control" style="width: 150px;" id="categoryChartType">
+                    <option value="pie">Pie Chart</option>
+                    <option value="bar">Bar Chart</option>
+                    <option value="doughnut">Doughnut Chart</option>
+                </select>
+            </div>
+            <canvas id="categoryChart"></canvas>
+        </div>
+        
+        <div class="chart-card">
+            <div class="chart-header">
+                <h3>Issues by Status</h3>
+                <select class="form-control" style="width: 150px;" id="statusChartType">
+                    <option value="pie">Pie Chart</option>
+                    <option value="doughnut">Doughnut Chart</option>
+                    <option value="bar">Bar Chart</option>
+                </select>
+            </div>
+            <canvas id="statusChart"></canvas>
+        </div>
+        
+        <div class="chart-card">
+            <div class="chart-header">
+                <h3>Monthly Trend</h3>
+                <select class="form-control" style="width: 150px;" id="trendChartType">
+                    <option value="line">Line Chart</option>
+                    <option value="bar">Bar Chart</option>
+                </select>
+            </div>
+            <canvas id="monthlyTrendChart"></canvas>
+        </div>
+        
+        <div class="chart-card">
+            <div class="chart-header">
+                <h3>Department Performance</h3>
+                <select class="form-control" style="width: 150px;" id="deptChartType">
+                    <option value="bar">Bar Chart</option>
+                    <option value="radar">Radar Chart</option>
+                </select>
+            </div>
+            <canvas id="departmentChart"></canvas>
+        </div>
+    </div>
+    
+    <!-- Heatmap -->
+    <div class="card" style="margin-top: 30px;">
+        <h2><i class="fas fa-map-marked-alt"></i> Issue Heatmap</h2>
+        <p>Visual representation of issue density across the city. Darker areas indicate higher concentration of issues.</p>
+        
+        <div id="heatmap" class="heatmap-container"></div>
+        
+        <div class="legend">
+            <div class="legend-item">
+                <div class="legend-color" style="background-color: #ffffcc;"></div>
+                <span>Low Density</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background-color: #ffeda0;"></div>
+                <span>Medium</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background-color: #fed976;"></div>
+                <span>High</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background-color: #feb24c;"></div>
+                <span>Very High</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background-color: #fd8d3c;"></div>
+                <span>Critical</span>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Insights Section -->
+    <div class="card" style="margin-top: 30px;">
+        <h2><i class="fas fa-lightbulb"></i> AI-Generated Insights</h2>
+        
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin-top: 20px;">
+            <div style="background-color: #e8f4fd; padding: 20px; border-radius: var(--radius);">
+                <h4><i class="fas fa-road"></i> Top Issue Area</h4>
+                <p id="topIssueArea">Loading...</p>
+                <div class="trend positive">+15% from last month</div>
+            </div>
+            
+            <div style="background-color: #f0f9f0; padding: 20px; border-radius: var(--radius);">
+                <h4><i class="fas fa-award"></i> Best Performing Dept</h4>
+                <p id="bestDept">Loading...</p>
+                <div class="trend positive">94% resolution rate</div>
+            </div>
+            
+            <div style="background-color: #fff8e6; padding: 20px; border-radius: var(--radius);">
+                <h4><i class="fas fa-clock"></i> Peak Reporting Time</h4>
+                <p id="peakTime">Loading...</p>
+                <div class="trend negative">Consider adding staff during this period</div>
+            </div>
+            
+            <div style="background-color: #fef0f0; padding: 20px; border-radius: var(--radius);">
+                <h4><i class="fas fa-exclamation-triangle"></i> Attention Needed</h4>
+                <p id="attentionArea">Loading...</p>
+                <div class="trend negative">Resolution time 40% above average</div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let categoryChart = null;
+let statusChart = null;
+let monthlyTrendChart = null;
+let departmentChart = null;
+let heatmap = null;
+let currentPeriod = '7';
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize charts
+    initializeCharts();
+    initializeHeatmap();
+    loadAnalyticsData();
+    
+    // Time filter buttons
+    document.querySelectorAll('.time-filter button').forEach(button => {
+        button.addEventListener('click', function() {
+            document.querySelectorAll('.time-filter button').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            this.classList.add('active');
+            currentPeriod = this.getAttribute('data-period');
+            loadAnalyticsData();
+        });
+    });
+    
+    // Chart type selectors
+    document.getElementById('categoryChartType')?.addEventListener('change', function() {
+        updateChartType('categoryChart', this.value);
+    });
+    
+    document.getElementById('statusChartType')?.addEventListener('change', function() {
+        updateChartType('statusChart', this.value);
+    });
+    
+    document.getElementById('trendChartType')?.addEventListener('change', function() {
+        updateChartType('monthlyTrendChart', this.value);
+    });
+    
+    document.getElementById('deptChartType')?.addEventListener('change', function() {
+        updateChartType('departmentChart', this.value);
+    });
+    
+    // Refresh button
+    document.getElementById('refreshAnalytics')?.addEventListener('click', function() {
+        loadAnalyticsData();
+        showNotification('Analytics data refreshed.', 'success');
+    });
+    
+    // Download report button
+    document.getElementById('downloadReport')?.addEventListener('click', function() {
+        showNotification('Generating analytics report... This feature is under development.', 'info');
+    });
+});
+
+function initializeCharts() {
+    // Category Chart
+    const categoryCtx = document.getElementById('categoryChart')?.getContext('2d');
+    if (categoryCtx) {
+        categoryChart = new Chart(categoryCtx, {
+            type: 'pie',
+            data: {
+                labels: [],
+                datasets: [{
+                    data: [],
+                    backgroundColor: [
+                        '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0',
+                        '#9966FF', '#FF9F40', '#8AC926', '#1982C4'
+                    ]
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'right'
+                    }
+                }
+            }
+        });
+    }
+    
+    // Status Chart
+    const statusCtx = document.getElementById('statusChart')?.getContext('2d');
+    if (statusCtx) {
+        statusChart = new Chart(statusCtx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Pending', 'In Progress', 'Resolved'],
+                datasets: [{
+                    data: [0, 0, 0],
+                    backgroundColor: [
+                        '#FFCE56', // Warning for Pending
+                        '#36A2EB', // Info for In Progress
+                        '#4BC0C0'  // Success for Resolved
+                    ]
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'right'
+                    }
+                }
+            }
+        });
+    }
+    
+    // Monthly Trend Chart
+    const trendCtx = document.getElementById('monthlyTrendChart')?.getContext('2d');
+    if (trendCtx) {
+        monthlyTrendChart = new Chart(trendCtx, {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [{
+                    label: 'Complaints',
+                    data: [],
+                    borderColor: '#36A2EB',
+                    backgroundColor: 'rgba(54, 162, 235, 0.1)',
+                    tension: 0.3
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+    }
+    
+    // Department Chart
+    const deptCtx = document.getElementById('departmentChart')?.getContext('2d');
+    if (deptCtx) {
+        departmentChart = new Chart(deptCtx, {
+            type: 'bar',
+            data: {
+                labels: [],
+                datasets: [{
+                    label: 'Complaints',
+                    data: [],
+                    backgroundColor: '#4BC0C0'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+    }
+}
+
+function initializeHeatmap() {
+    const heatmapEl = document.getElementById('heatmap');
+    if (!heatmapEl) return;
+    
+    // Create a simple map for heatmap visualization
+    heatmap = L.map('heatmap').setView([20.5937, 78.9629], 12);
+    
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors'
+    }).addTo(heatmap);
+    
+    // Add heatmap layer (simulated data)
+    const heatmapData = {{ heatmap_data|safe }};
+    
+    if (heatmapData && heatmapData.length > 0) {
+        // Create heatmap layer
+        const heat = L.heatLayer(heatmapData.map(point => {
+            return [point.lat, point.lng, point.weight || 1];
+        }), {
+            radius: 25,
+            blur: 15,
+            maxZoom: 17,
+            gradient: {
+                0.2: '#ffffcc',
+                0.4: '#ffeda0',
+                0.6: '#fed976',
+                0.8: '#feb24c',
+                1.0: '#fd8d3c'
+            }
+        }).addTo(heatmap);
+        
+        // Fit bounds to show all heatmap points
+        const bounds = L.latLngBounds(heatmapData.map(point => [point.lat, point.lng]));
+        heatmap.fitBounds(bounds);
+    }
+}
+
+function loadAnalyticsData() {
+    // Load metrics
+    fetch(`{{ url_for('admin.analytics_api') }}`)
+        .then(response => response.json())
+        .then(data => {
+            // Update metrics
+            document.getElementById('avgResolutionTime').textContent = data.avg_resolution_time || '--';
+            document.getElementById('resolutionRate').textContent = '85%'; // Mock data
+            document.getElementById('activeCitizens').textContent = '1,247'; // Mock data
+            document.getElementById('avgRating').textContent = '4.2'; // Mock data
+            
+            // Update insights
+            document.getElementById('topIssueArea').textContent = 'Downtown District (Road Issues)';
+            document.getElementById('bestDept').textContent = 'Sanitation Department';
+            document.getElementById('peakTime').textContent = '9:00 AM - 11:00 AM';
+            document.getElementById('attentionArea').textContent = 'Northside - Pothole complaints';
+        })
+        .catch(error => {
+            console.error('Error loading analytics:', error);
+        });
+    
+    // Update charts with data from template
+    updateChartsWithData();
+}
+
+function updateChartsWithData() {
+    // Category Chart
+    if (categoryChart) {
+        const categoryData = JSON.parse('{{ category_data|safe }}');
+        categoryChart.data.labels = categoryData.map(item => item.category);
+        categoryChart.data.datasets[0].data = categoryData.map(item => item.count);
+        categoryChart.update();
+    }
+    
+    // Status Chart
+    if (statusChart) {
+        const statusData = JSON.parse('{{ status_data|safe }}');
+        const statusLabels = ['Pending', 'In Progress', 'Resolved'];
+        const statusValues = statusLabels.map(label => {
+            const item = statusData.find(d => d.status === label);
+            return item ? item.count : 0;
+        });
+        statusChart.data.datasets[0].data = statusValues;
+        statusChart.update();
+    }
+    
+    // Monthly Trend Chart
+    if (monthlyTrendChart) {
+        const monthlyData = JSON.parse('{{ monthly_data|safe }}');
+        monthlyTrendChart.data.labels = monthlyData.map(item => item.month);
+        monthlyTrendChart.data.datasets[0].data = monthlyData.map(item => item.count);
+        monthlyTrendChart.update();
+    }
+    
+    // Department Chart (mock data for now)
+    if (departmentChart) {
+        const deptLabels = ['Roads', 'Sanitation', 'Electricity', 'Water', 'Lighting', 'Emergency'];
+        const deptData = [45, 38, 22, 19, 15, 8];
+        departmentChart.data.labels = deptLabels;
+        departmentChart.data.datasets[0].data = deptData;
+        departmentChart.update();
+    }
+}
+
+function updateChartType(chartId, type) {
+    let chart;
+    switch(chartId) {
+        case 'categoryChart': chart = categoryChart; break;
+        case 'statusChart': chart = statusChart; break;
+        case 'monthlyTrendChart': chart = monthlyTrendChart; break;
+        case 'departmentChart': chart = departmentChart; break;
+        default: return;
+    }
+    
+    if (chart) {
+        chart.config.type = type;
+        chart.update();
+    }
+}
+</script>
+{% endblock %}

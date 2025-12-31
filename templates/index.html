@@ -1,0 +1,209 @@
+{% extends "layout.html" %}
+
+{% block title %}CivicTrack - Home{% endblock %}
+
+{% block content %}
+<!-- Hero Section -->
+<section class="hero">
+    <div class="container">
+        <h1>CivicTrack</h1>
+        <p class="tagline">Track. Resolve. Improve.</p>
+        <p>An AI-powered platform for citizens to report urban issues and for governments to manage them efficiently. Enhancing transparency, accountability, and data-driven decision-making.</p>
+        
+        <div class="hero-btns">
+            {% if not current_user.is_authenticated %}
+            <a href="{{ url_for('auth.register') }}" class="btn btn-primary">
+                <i class="fas fa-user-plus"></i> Register as Citizen
+            </a>
+            <a href="{{ url_for('auth.register') }}?type=government" class="btn btn-outline">
+                <i class="fas fa-landmark"></i> Government Login
+            </a>
+            {% else %}
+                {% if current_user.is_admin or current_user.is_government %}
+                <a href="{{ url_for('admin.admin_dashboard') }}" class="btn btn-primary">
+                    <i class="fas fa-tachometer-alt"></i> Go to Admin Dashboard
+                </a>
+                {% else %}
+                <a href="{{ url_for('complaints.new_complaint') }}" class="btn btn-primary">
+                    <i class="fas fa-plus-circle"></i> Report an Issue
+                </a>
+                {% endif %}
+            {% endif %}
+            <a href="#features" class="btn btn-outline">
+                <i class="fas fa-info-circle"></i> Learn More
+            </a>
+        </div>
+    </div>
+</section>
+
+<!-- Stats Section -->
+<section class="container">
+    <div class="stats-container">
+        <div class="stat-card total">
+            <i class="fas fa-clipboard-list"></i>
+            <span class="stat-number">1,247</span>
+            <span class="stat-label">Total Issues Reported</span>
+        </div>
+        
+        <div class="stat-card pending">
+            <i class="fas fa-clock"></i>
+            <span class="stat-number">189</span>
+            <span class="stat-label">Pending Issues</span>
+        </div>
+        
+        <div class="stat-card in-progress">
+            <i class="fas fa-tools"></i>
+            <span class="stat-number">356</span>
+            <span class="stat-label">In Progress</span>
+        </div>
+        
+        <div class="stat-card resolved">
+            <i class="fas fa-check-circle"></i>
+            <span class="stat-number">702</span>
+            <span class="stat-label">Resolved Issues</span>
+        </div>
+    </div>
+</section>
+
+<!-- Features Section -->
+<section id="features" class="container">
+    <h2 class="text-center">Key Features</h2>
+    <p class="text-center" style="max-width: 700px; margin: 0 auto 40px;">
+        CivicTrack offers comprehensive solutions for both citizens and government officials.
+    </p>
+    
+    <div class="features-grid">
+        <div class="feature-card">
+            <i class="fas fa-mobile-alt"></i>
+            <h3>Citizen Portal</h3>
+            <p>Easy complaint filing with photo upload, geolocation tagging, and real-time status tracking. Provide feedback on resolved issues.</p>
+        </div>
+        
+        <div class="feature-card">
+            <i class="fas fa-chart-bar"></i>
+            <h3>Government Dashboard</h3>
+            <p>Department-wise dashboards with analytics, heatmaps, and complaint assignment tools for efficient issue resolution.</p>
+        </div>
+        
+        <div class="feature-card">
+            <i class="fas fa-robot"></i>
+            <h3>AI-Powered Classification</h3>
+            <p>Automatic categorization and prioritization of issues using machine learning algorithms for faster response times.</p>
+        </div>
+        
+        <div class="feature-card">
+            <i class="fas fa-map-marked-alt"></i>
+            <h3>Interactive Heatmaps</h3>
+            <p>Visual representation of city-wide issues to identify problem areas and allocate resources effectively.</p>
+        </div>
+        
+        <div class="feature-card">
+            <i class="fas fa-bell"></i>
+            <h3>Real-time Notifications</h3>
+            <p>Automatic alerts to citizens about complaint status updates and to departments about new high-priority issues.</p>
+        </div>
+        
+        <div class="feature-card">
+            <i class="fas fa-database"></i>
+            <h3>Data Analytics</h3>
+            <p>Comprehensive analytics for data-driven decision making, trend analysis, and urban planning insights.</p>
+        </div>
+    </div>
+</section>
+
+<!-- How It Works Section -->
+<section class="container" style="margin: 60px auto;">
+    <h2 class="text-center">How It Works</h2>
+    
+    <div style="max-width: 800px; margin: 40px auto;">
+        <div style="display: flex; align-items: center; margin-bottom: 30px;">
+            <div style="flex-shrink: 0; width: 60px; height: 60px; background-color: var(--secondary); color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 24px; font-weight: bold; margin-right: 20px;">
+                1
+            </div>
+            <div>
+                <h3>Citizen Reports an Issue</h3>
+                <p>Citizens file complaints with details, photos, and location using web or mobile interface. AI automatically categorizes the issue.</p>
+            </div>
+        </div>
+        
+        <div style="display: flex; align-items: center; margin-bottom: 30px;">
+            <div style="flex-shrink: 0; width: 60px; height: 60px; background-color: var(--accent); color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 24px; font-weight: bold; margin-right: 20px;">
+                2
+            </div>
+            <div>
+                <h3>System Assigns & Prioritizes</h3>
+                <p>The system assigns issues to appropriate departments and prioritizes based on severity, location, and type.</p>
+            </div>
+        </div>
+        
+        <div style="display: flex; align-items: center; margin-bottom: 30px;">
+            <div style="flex-shrink: 0; width: 60px; height: 60px; background-color: var(--success); color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 24px; font-weight: bold; margin-right: 20px;">
+                3
+            </div>
+            <div>
+                <h3>Government Takes Action</h3>
+                <p>Department officials receive notifications, view dashboards, assign personnel, and update issue status.</p>
+            </div>
+        </div>
+        
+        <div style="display: flex; align-items: center;">
+            <div style="flex-shrink: 0; width: 60px; height: 60px; background-color: var(--warning); color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 24px; font-weight: bold; margin-right: 20px;">
+                4
+            </div>
+            <div>
+                <h3>Transparent Tracking & Feedback</h3>
+                <p>Citizens track progress in real-time and provide feedback after resolution. Data is analyzed for urban planning.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Tech Stack Section -->
+<section style="background-color: var(--light); padding: 60px 0;">
+    <div class="container">
+        <h2 class="text-center">Technology Stack</h2>
+        
+        <div style="display: flex; flex-wrap: wrap; justify-content: center; gap: 30px; margin-top: 40px;">
+            <div style="text-align: center; width: 150px;">
+                <div style="font-size: 40px; color: var(--primary); margin-bottom: 10px;">
+                    <i class="fab fa-html5"></i>
+                </div>
+                <h4>Frontend</h4>
+                <p>HTML5, CSS3, JavaScript</p>
+            </div>
+            
+            <div style="text-align: center; width: 150px;">
+                <div style="font-size: 40px; color: var(--primary); margin-bottom: 10px;">
+                    <i class="fab fa-python"></i>
+                </div>
+                <h4>Backend</h4>
+                <p>Flask (Python)</p>
+            </div>
+            
+            <div style="text-align: center; width: 150px;">
+                <div style="font-size: 40px; color: var(--primary); margin-bottom: 10px;">
+                    <i class="fas fa-database"></i>
+                </div>
+                <h4>Database</h4>
+                <p>SQLite</p>
+            </div>
+            
+            <div style="text-align: center; width: 150px;">
+                <div style="font-size: 40px; color: var(--primary); margin-bottom: 10px;">
+                    <i class="fas fa-map"></i>
+                </div>
+                <h4>Maps & APIs</h4>
+                <p>Leaflet.js, OpenStreetMap</p>
+            </div>
+            
+            <div style="text-align: center; width: 150px;">
+                <div style="font-size: 40px; color: var(--primary); margin-bottom: 10px;">
+                    <i class="fas fa-chart-line"></i>
+                </div>
+                <h4>Visualization</h4>
+                <p>Chart.js, Heatmaps</p>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}

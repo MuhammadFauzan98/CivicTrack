@@ -1,0 +1,78 @@
+{% extends "layout.html" %}
+
+{% block title %}Register - CivicTrack{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="form-container">
+        <div class="card">
+            <div class="card-header">
+                <h2><i class="fas fa-user-plus"></i> Create Account</h2>
+                <p>Join CivicTrack as a citizen or government official</p>
+            </div>
+            
+            <form method="POST" action="{{ url_for('auth.register') }}">
+                {{ form.hidden_tag() }}
+                
+                <div class="form-group">
+                    {{ form.username.label(class="form-label") }}
+                    {{ form.username(class="form-control", placeholder="Choose a username") }}
+                    {% for error in form.username.errors %}
+                        <span class="text-danger">{{ error }}</span>
+                    {% endfor %}
+                </div>
+                
+                <div class="form-group">
+                    {{ form.email.label(class="form-label") }}
+                    {{ form.email(class="form-control", placeholder="Enter your email") }}
+                    {% for error in form.email.errors %}
+                        <span class="text-danger">{{ error }}</span>
+                    {% endfor %}
+                </div>
+                
+                <div class="form-group">
+                    {{ form.user_type.label(class="form-label") }}
+                    {{ form.user_type(class="form-control") }}
+                    <small class="text-muted">
+                        <i class="fas fa-info-circle"></i> 
+                        Citizens can report issues. Government officials can manage and resolve issues.
+                    </small>
+                </div>
+                
+                <div class="form-group">
+                    {{ form.password.label(class="form-label") }}
+                    {{ form.password(class="form-control", placeholder="Create a password (min 6 characters)") }}
+                    {% for error in form.password.errors %}
+                        <span class="text-danger">{{ error }}</span>
+                    {% endfor %}
+                </div>
+                
+                <div class="form-group">
+                    {{ form.confirm_password.label(class="form-label") }}
+                    {{ form.confirm_password(class="form-control", placeholder="Confirm your password") }}
+                    {% for error in form.confirm_password.errors %}
+                        <span class="text-danger">{{ error }}</span>
+                    {% endfor %}
+                </div>
+                
+                <div class="form-group">
+                    <div class="form-check">
+                        <input type="checkbox" class="form-check-input" id="terms" required>
+                        <label class="form-check-label" for="terms">
+                            I agree to the <a href="#">Terms of Service</a> and <a href="#">Privacy Policy</a>
+                        </label>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    {{ form.submit(class="btn btn-primary btn-block") }}
+                </div>
+                
+                <div class="text-center" style="margin-top: 20px;">
+                    <p>Already have an account? <a href="{{ url_for('auth.login') }}">Login here</a></p>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

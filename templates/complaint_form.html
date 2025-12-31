@@ -1,0 +1,514 @@
+{% extends "layout.html" %}
+
+{% block title %}Report Issue - CivicTrack{% endblock %}
+
+{% block extra_css %}
+<style>
+    .location-picker {
+        height: 300px;
+        border-radius: var(--radius);
+        overflow: hidden;
+        margin: 15px 0;
+        border: 2px dashed #ddd;
+    }
+    
+    .location-search {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 15px;
+    }
+    
+    .image-preview {
+        width: 100%;
+        max-height: 200px;
+        object-fit: cover;
+        border-radius: var(--radius);
+        margin-top: 10px;
+        display: none;
+    }
+    
+    .step-indicator {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 30px;
+        position: relative;
+    }
+    
+    .step-indicator:before {
+        content: '';
+        position: absolute;
+        top: 15px;
+        left: 0;
+        right: 0;
+        height: 2px;
+        background-color: #ddd;
+        z-index: 1;
+    }
+    
+    .step {
+        position: relative;
+        z-index: 2;
+        text-align: center;
+        flex: 1;
+    }
+    
+    .step-number {
+        width: 30px;
+        height: 30px;
+        background-color: #ddd;
+        color: white;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 10px;
+        font-weight: bold;
+    }
+    
+    .step.active .step-number {
+        background-color: var(--secondary);
+    }
+    
+    .step.completed .step-number {
+        background-color: var(--success);
+    }
+    
+    .step-label {
+        font-size: 14px;
+        color: var(--gray);
+    }
+    
+    .step.active .step-label {
+        color: var(--secondary);
+        font-weight: bold;
+    }
+    
+    .form-section {
+        display: none;
+    }
+    
+    .form-section.active {
+        display: block;
+    }
+    
+    .form-navigation {
+        display: flex;
+        justify-content: space-between;
+        margin-top: 30px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="form-container">
+        <div class="card">
+            <div class="card-header">
+                <h2><i class="fas fa-exclamation-circle"></i> Report Urban Issue</h2>
+                <p>Help improve your city by reporting issues like potholes, garbage, streetlight failures, etc.</p>
+            </div>
+            
+            <!-- Step Indicator -->
+            <div class="step-indicator">
+                <div class="step active" id="step1-indicator">
+                    <div class="step-number">1</div>
+                    <div class="step-label">Issue Details</div>
+                </div>
+                <div class="step" id="step2-indicator">
+                    <div class="step-number">2</div>
+                    <div class="step-label">Location</div>
+                </div>
+                <div class="step" id="step3-indicator">
+                    <div class="step-number">3</div>
+                    <div class="step-label">Review & Submit</div>
+                </div>
+            </div>
+            
+            <form method="POST" action="{{ url_for('complaints.new_complaint') }}" enctype="multipart/form-data" id="complaintForm">
+                {{ form.hidden_tag() }}
+                
+                <!-- Step 1: Issue Details -->
+                <div class="form-section active" id="step1">
+                    <h3><i class="fas fa-info-circle"></i> Issue Details</h3>
+                    
+                    <div class="form-group">
+                        {{ form.title.label(class="form-label") }}
+                        {{ form.title(class="form-control", placeholder="Brief description of the issue") }}
+                        <small class="text-muted">Example: "Large pothole on Main Street"</small>
+                    </div>
+                    
+                    <div class="form-group">
+                        {{ form.category.label(class="form-label") }}
+                        {{ form.category(class="form-control") }}
+                    </div>
+                    
+                    <div class="form-group">
+                        {{ form.description.label(class="form-label") }}
+                        {{ form.description(class="form-control", placeholder="Provide detailed description of the issue", rows=4) }}
+                        <small class="text-muted">Include details like size, severity, and any safety concerns</small>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Upload Photo (Optional)</label>
+                        {{ form.image(class="form-control", id="imageUpload", accept="image/*") }}
+                        <small class="text-muted">Max 5MB. Supported formats: JPG, PNG, GIF</small>
+                        <img id="imagePreview" class="image-preview" alt="Image preview">
+                    </div>
+                    
+                    <div class="form-navigation">
+                        <div></div> <!-- Empty div for spacing -->
+                        <button type="button" class="btn btn-primary" onclick="nextStep()">
+                            Next <i class="fas fa-arrow-right"></i>
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Step 2: Location -->
+                <div class="form-section" id="step2">
+                    <h3><i class="fas fa-map-marker-alt"></i> Location Details</h3>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Find Location on Map</label>
+                        <div class="location-search">
+                            <input type="text" id="locationSearch" class="form-control" placeholder="Search for address or place">
+                            <button type="button" class="btn btn-outline" onclick="searchLocation()">
+                                <i class="fas fa-search"></i> Search
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <div id="locationMap" class="location-picker"></div>
+                        <small class="text-muted">Click on the map to mark the exact location</small>
+                    </div>
+                    
+                    <div class="form-group">
+                        {{ form.address.label(class="form-label") }}
+                        {{ form.address(class="form-control", id="addressInput", placeholder="Address will auto-fill from map click") }}
+                    </div>
+                    
+                    <div class="row" style="display: flex; gap: 15px;">
+                        <div class="form-group" style="flex: 1;">
+                            {{ form.latitude.label(class="form-label") }}
+                            {{ form.latitude(class="form-control", id="latitudeInput", readonly=true) }}
+                        </div>
+                        <div class="form-group" style="flex: 1;">
+                            {{ form.longitude.label(class="form-label") }}
+                            {{ form.longitude(class="form-control", id="longitudeInput", readonly=true) }}
+                        </div>
+                    </div>
+                    
+                    <div class="form-navigation">
+                        <button type="button" class="btn btn-outline" onclick="prevStep()">
+                            <i class="fas fa-arrow-left"></i> Back
+                        </button>
+                        <button type="button" class="btn btn-primary" onclick="nextStep()">
+                            Next <i class="fas fa-arrow-right"></i>
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Step 3: Review -->
+                <div class="form-section" id="step3">
+                    <h3><i class="fas fa-check-circle"></i> Review & Submit</h3>
+                    
+                    <div class="card" style="background-color: var(--light);">
+                        <h4>Issue Summary</h4>
+                        
+                        <div class="row" style="display: flex; margin-bottom: 15px;">
+                            <div style="flex: 1; font-weight: bold;">Title:</div>
+                            <div style="flex: 2;" id="reviewTitle"></div>
+                        </div>
+                        
+                        <div class="row" style="display: flex; margin-bottom: 15px;">
+                            <div style="flex: 1; font-weight: bold;">Category:</div>
+                            <div style="flex: 2;" id="reviewCategory"></div>
+                        </div>
+                        
+                        <div class="row" style="display: flex; margin-bottom: 15px;">
+                            <div style="flex: 1; font-weight: bold;">Description:</div>
+                            <div style="flex: 2;" id="reviewDescription"></div>
+                        </div>
+                        
+                        <div class="row" style="display: flex; margin-bottom: 15px;">
+                            <div style="flex: 1; font-weight: bold;">Location:</div>
+                            <div style="flex: 2;" id="reviewLocation"></div>
+                        </div>
+                        
+                        <div id="reviewImageContainer" style="display: none;">
+                            <div style="font-weight: bold; margin-bottom: 10px;">Photo:</div>
+                            <img id="reviewImage" style="max-width: 200px; border-radius: var(--radius);">
+                        </div>
+                    </div>
+                    
+                    <div class="form-group" style="margin-top: 20px;">
+                        <div class="form-check">
+                            <input type="checkbox" class="form-check-input" id="confirmAccuracy" required>
+                            <label class="form-check-label" for="confirmAccuracy">
+                                I confirm that the information provided is accurate to the best of my knowledge
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <div class="form-navigation">
+                        <button type="button" class="btn btn-outline" onclick="prevStep()">
+                            <i class="fas fa-arrow-left"></i> Back
+                        </button>
+                        {{ form.submit(class="btn btn-success", id="submitBtn") }}
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/map.js') }}"></script>
+<script>
+let currentStep = 1;
+let map = null;
+let marker = null;
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Image preview
+    document.getElementById('imageUpload').addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const preview = document.getElementById('imagePreview');
+                preview.src = e.target.result;
+                preview.style.display = 'block';
+            }
+            reader.readAsDataURL(file);
+        }
+    });
+    
+    // Initialize map for step 2
+    setTimeout(() => {
+        if (document.getElementById('step2')) {
+            initializeLocationPicker();
+        }
+    }, 100);
+});
+
+function nextStep() {
+    // Validate current step
+    if (!validateStep(currentStep)) {
+        return;
+    }
+    
+    // Hide current step
+    document.getElementById(`step${currentStep}`).classList.remove('active');
+    document.getElementById(`step${currentStep}-indicator`).classList.remove('active');
+    
+    currentStep++;
+    
+    // Show next step
+    document.getElementById(`step${currentStep}`).classList.add('active');
+    document.getElementById(`step${currentStep}-indicator`).classList.add('active');
+    
+    // If moving to step 3, update review
+    if (currentStep === 3) {
+        updateReview();
+    }
+}
+
+function prevStep() {
+    // Hide current step
+    document.getElementById(`step${currentStep}`).classList.remove('active');
+    document.getElementById(`step${currentStep}-indicator`).classList.remove('active');
+    
+    currentStep--;
+    
+    // Show previous step
+    document.getElementById(`step${currentStep}`).classList.add('active');
+    document.getElementById(`step${currentStep}-indicator`).classList.add('active');
+}
+
+function validateStep(step) {
+    if (step === 1) {
+        const title = document.getElementById('title').value.trim();
+        const category = document.getElementById('category').value;
+        const description = document.getElementById('description').value.trim();
+        
+        if (!title) {
+            showNotification('Please enter a title for the issue.', 'warning');
+            document.getElementById('title').focus();
+            return false;
+        }
+        
+        if (!category) {
+            showNotification('Please select a category.', 'warning');
+            return false;
+        }
+        
+        if (!description) {
+            showNotification('Please provide a description.', 'warning');
+            document.getElementById('description').focus();
+            return false;
+        }
+        
+        return true;
+    }
+    
+    if (step === 2) {
+        const latitude = document.getElementById('latitudeInput').value;
+        const longitude = document.getElementById('longitudeInput').value;
+        const address = document.getElementById('addressInput').value.trim();
+        
+        if (!latitude || !longitude) {
+            showNotification('Please select a location on the map.', 'warning');
+            return false;
+        }
+        
+        if (!address) {
+            showNotification('Please provide an address.', 'warning');
+            document.getElementById('addressInput').focus();
+            return false;
+        }
+        
+        return true;
+    }
+    
+    return true;
+}
+
+function updateReview() {
+    // Update review fields with form data
+    document.getElementById('reviewTitle').textContent = document.getElementById('title').value;
+    
+    const category = document.getElementById('category');
+    const categoryText = category.options[category.selectedIndex].text;
+    document.getElementById('reviewCategory').textContent = categoryText;
+    
+    document.getElementById('reviewDescription').textContent = document.getElementById('description').value;
+    
+    const address = document.getElementById('addressInput').value;
+    const lat = document.getElementById('latitudeInput').value;
+    const lng = document.getElementById('longitudeInput').value;
+    document.getElementById('reviewLocation').textContent = `${address} (Lat: ${lat}, Lng: ${lng})`;
+    
+    // Update image preview if exists
+    const imageInput = document.getElementById('imageUpload');
+    if (imageInput.files && imageInput.files[0]) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            document.getElementById('reviewImage').src = e.target.result;
+            document.getElementById('reviewImageContainer').style.display = 'block';
+        }
+        reader.readAsDataURL(imageInput.files[0]);
+    } else {
+        document.getElementById('reviewImageContainer').style.display = 'none';
+    }
+}
+
+function initializeLocationPicker() {
+    // Default to a central location (India)
+    const defaultLat = 20.5937;
+    const defaultLng = 78.9629;
+    
+    map = L.map('locationMap').setView([defaultLat, defaultLng], 13);
+    
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors'
+    }).addTo(map);
+    
+    // Add click event to map
+    map.on('click', function(e) {
+        const lat = e.latlng.lat;
+        const lng = e.latlng.lng;
+        
+        // Update form fields
+        document.getElementById('latitudeInput').value = lat.toFixed(6);
+        document.getElementById('longitudeInput').value = lng.toFixed(6);
+        
+        // Add/update marker
+        if (marker) {
+            map.removeLayer(marker);
+        }
+        
+        marker = L.marker([lat, lng]).addTo(map);
+        
+        // Reverse geocode to get address
+        reverseGeocode(lat, lng);
+    });
+    
+    // Try to get user's current location
+    if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+            function(position) {
+                const lat = position.coords.latitude;
+                const lng = position.coords.longitude;
+                
+                map.setView([lat, lng], 15);
+                
+                // Add marker at current location
+                marker = L.marker([lat, lng]).addTo(map);
+                document.getElementById('latitudeInput').value = lat.toFixed(6);
+                document.getElementById('longitudeInput').value = lng.toFixed(6);
+                
+                reverseGeocode(lat, lng);
+            },
+            function(error) {
+                console.log('Geolocation error:', error);
+                showNotification('Unable to get your location. Please select manually on map.', 'warning');
+            }
+        );
+    }
+}
+
+function searchLocation() {
+    const query = document.getElementById('locationSearch').value.trim();
+    if (!query) {
+        showNotification('Please enter a location to search.', 'warning');
+        return;
+    }
+    
+    // Use Nominatim API for geocoding
+    fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`)
+        .then(response => response.json())
+        .then(data => {
+            if (data && data.length > 0) {
+                const lat = parseFloat(data[0].lat);
+                const lng = parseFloat(data[0].lon);
+                
+                map.setView([lat, lng], 15);
+                
+                // Update marker
+                if (marker) {
+                    map.removeLayer(marker);
+                }
+                
+                marker = L.marker([lat, lng]).addTo(map);
+                document.getElementById('latitudeInput').value = lat.toFixed(6);
+                document.getElementById('longitudeInput').value = lng.toFixed(6);
+                document.getElementById('addressInput').value = data[0].display_name;
+                
+                showNotification('Location found!', 'success');
+            } else {
+                showNotification('Location not found. Please try a different search term.', 'warning');
+            }
+        })
+        .catch(error => {
+            console.error('Geocoding error:', error);
+            showNotification('Error searching location. Please try again.', 'danger');
+        });
+}
+
+function reverseGeocode(lat, lng) {
+    fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`)
+        .then(response => response.json())
+        .then(data => {
+            if (data && data.display_name) {
+                document.getElementById('addressInput').value = data.display_name;
+            }
+        })
+        .catch(error => {
+            console.error('Reverse geocoding error:', error);
+            document.getElementById('addressInput').value = `Latitude: ${lat}, Longitude: ${lng}`;
+        });
+}
+</script>
+{% endblock %}

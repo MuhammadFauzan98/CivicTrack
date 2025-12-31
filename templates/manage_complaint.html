@@ -1,0 +1,478 @@
+{% extends "layout.html" %}
+
+{% block title %}Manage Complaint #{{ complaint.id }} - CivicTrack{% endblock %}
+
+{% block extra_css %}
+<style>
+    .complaint-details {
+        display: grid;
+        grid-template-columns: 2fr 1fr;
+        gap: 30px;
+        margin-bottom: 30px;
+    }
+    
+    @media (max-width: 768px) {
+        .complaint-details {
+            grid-template-columns: 1fr;
+        }
+    }
+    
+    .detail-section {
+        background-color: white;
+        border-radius: var(--radius);
+        box-shadow: var(--shadow);
+        padding: 20px;
+        margin-bottom: 20px;
+    }
+    
+    .detail-row {
+        display: flex;
+        margin-bottom: 10px;
+        padding-bottom: 10px;
+        border-bottom: 1px solid #eee;
+    }
+    
+    .detail-label {
+        flex: 1;
+        font-weight: bold;
+        color: var(--dark);
+    }
+    
+    .detail-value {
+        flex: 2;
+    }
+    
+    .action-panel {
+        background-color: white;
+        border-radius: var(--radius);
+        box-shadow: var(--shadow);
+        padding: 20px;
+        position: sticky;
+        top: 100px;
+    }
+    
+    .action-form {
+        margin-bottom: 20px;
+    }
+    
+    .history-timeline {
+        position: relative;
+        padding-left: 30px;
+    }
+    
+    .history-timeline:before {
+        content: '';
+        position: absolute;
+        left: 10px;
+        top: 0;
+        bottom: 0;
+        width: 2px;
+        background-color: var(--light);
+    }
+    
+    .timeline-item {
+        position: relative;
+        margin-bottom: 20px;
+    }
+    
+    .timeline-item:before {
+        content: '';
+        position: absolute;
+        left: -26px;
+        top: 5px;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background-color: var(--secondary);
+    }
+    
+    .timeline-date {
+        font-size: 12px;
+        color: var(--gray);
+        margin-bottom: 5px;
+    }
+    
+    .timeline-content {
+        background-color: var(--light);
+        padding: 10px;
+        border-radius: var(--radius);
+    }
+    
+    .image-gallery {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+        gap: 10px;
+        margin-top: 15px;
+    }
+    
+    .gallery-image {
+        width: 100%;
+        height: 100px;
+        object-fit: cover;
+        border-radius: var(--radius);
+        cursor: pointer;
+        transition: transform 0.3s;
+    }
+    
+    .gallery-image:hover {
+        transform: scale(1.05);
+    }
+    
+    .status-badge-large {
+        display: inline-block;
+        padding: 8px 16px;
+        border-radius: 20px;
+        font-size: 16px;
+        font-weight: bold;
+    }
+    
+    .priority-badge-large {
+        display: inline-block;
+        padding: 8px 16px;
+        border-radius: 4px;
+        font-size: 16px;
+        font-weight: bold;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="card-header">
+        <h1>
+            <i class="fas fa-ticket-alt"></i> 
+            Manage Complaint: #{{ complaint.id }} - {{ complaint.title }}
+        </h1>
+        <a href="{{ url_for('admin.admin_dashboard') }}" class="btn btn-outline">
+            <i class="fas fa-arrow-left"></i> Back to Dashboard
+        </a>
+    </div>
+    
+    <div class="complaint-details">
+        <!-- Left Column: Complaint Details -->
+        <div>
+            <!-- Basic Information -->
+            <div class="detail-section">
+                <h3><i class="fas fa-info-circle"></i> Basic Information</h3>
+                
+                <div class="detail-row">
+                    <div class="detail-label">Complaint ID:</div>
+                    <div class="detail-value">#{{ complaint.id }}</div>
+                </div>
+                
+                <div class="detail-row">
+                    <div class="detail-label">Title:</div>
+                    <div class="detail-value">{{ complaint.title }}</div>
+                </div>
+                
+                <div class="detail-row">
+                    <div class="detail-label">Description:</div>
+                    <div class="detail-value">{{ complaint.description }}</div>
+                </div>
+                
+                <div class="detail-row">
+                    <div class="detail-label">Category:</div>
+                    <div class="detail-value">
+                        <span class="badge badge-secondary">
+                            {{ complaint.category|replace('_', ' ')|title }}
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="detail-row">
+                    <div class="detail-label">Date Submitted:</div>
+                    <div class="detail-value">{{ complaint.created_at.strftime('%Y-%m-%d %H:%M') }}</div>
+                </div>
+                
+                <div class="detail-row">
+                    <div class="detail-label">Citizen:</div>
+                    <div class="detail-value">
+                        {% if complaint.citizen %}
+                            {{ complaint.citizen.username }} ({{ complaint.citizen.email }})
+                        {% else %}
+                            Anonymous
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Location Information -->
+            <div class="detail-section">
+                <h3><i class="fas fa-map-marker-alt"></i> Location Details</h3>
+                
+                <div class="detail-row">
+                    <div class="detail-label">Address:</div>
+                    <div class="detail-value">{{ complaint.address }}</div>
+                </div>
+                
+                <div class="detail-row">
+                    <div class="detail-label">Coordinates:</div>
+                    <div class="detail-value">
+                        {{ complaint.latitude }}, {{ complaint.longitude }}
+                    </div>
+                </div>
+                
+                <div id="complaintMap" class="map-container" style="height: 200px; margin-top: 15px;"></div>
+            </div>
+            
+            <!-- Images -->
+            {% if complaint.image_path %}
+            <div class="detail-section">
+                <h3><i class="fas fa-images"></i> Attached Images</h3>
+                
+                <div class="image-gallery">
+                    <img src="{{ url_for('static', filename=complaint.image_path) }}" 
+                         alt="Complaint Image" 
+                         class="gallery-image"
+                         onclick="openImageModal(this.src)">
+                </div>
+            </div>
+            {% endif %}
+            
+            <!-- Activity History -->
+            <div class="detail-section">
+                <h3><i class="fas fa-history"></i> Activity History</h3>
+                
+                <div class="history-timeline">
+                    <div class="timeline-item">
+                        <div class="timeline-date">{{ complaint.created_at.strftime('%Y-%m-%d %H:%M') }}</div>
+                        <div class="timeline-content">
+                            <strong>Complaint Created</strong>
+                            <p>Complaint submitted by {% if complaint.citizen %}{{ complaint.citizen.username }}{% else %}Anonymous{% endif %}</p>
+                        </div>
+                    </div>
+                    
+                    {% if complaint.department %}
+                    <div class="timeline-item">
+                        <div class="timeline-date">{{ complaint.created_at.strftime('%Y-%m-%d %H:%M') }}</div>
+                        <div class="timeline-content">
+                            <strong>Assigned to Department</strong>
+                            <p>Assigned to {{ complaint.department.name }}</p>
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    {% if complaint.updated_at and complaint.updated_at != complaint.created_at %}
+                    <div class="timeline-item">
+                        <div class="timeline-date">{{ complaint.updated_at.strftime('%Y-%m-%d %H:%M') }}</div>
+                        <div class="timeline-content">
+                            <strong>Status Updated</strong>
+                            <p>Status changed to {{ complaint.status }}</p>
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    {% if complaint.resolved_at %}
+                    <div class="timeline-item">
+                        <div class="timeline-date">{{ complaint.resolved_at.strftime('%Y-%m-%d %H:%M') }}</div>
+                        <div class="timeline-content">
+                            <strong>Complaint Resolved</strong>
+                            <p>Issue marked as resolved</p>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <!-- Right Column: Action Panel -->
+        <div class="action-panel">
+            <!-- Current Status -->
+            <div style="text-align: center; margin-bottom: 30px;">
+                <h3>Current Status</h3>
+                <span class="status-badge-large status-{{ complaint.status|lower|replace(' ', '-') }}" 
+                      style="display: block; margin: 10px auto;">
+                    {{ complaint.status }}
+                </span>
+                
+                <h3 style="margin-top: 20px;">Priority</h3>
+                <span class="priority-badge-large priority-{{ complaint.priority|lower }}" 
+                      style="display: block; margin: 10px auto;">
+                    {{ complaint.priority }}
+                </span>
+            </div>
+            
+            <!-- Update Status Form -->
+            <form method="POST" class="action-form">
+                <h4><i class="fas fa-sync-alt"></i> Update Status</h4>
+                
+                <div class="form-group">
+                    <label class="form-label">New Status</label>
+                    <select name="status" class="form-control" required>
+                        <option value="Pending" {% if complaint.status == 'Pending' %}selected{% endif %}>Pending</option>
+                        <option value="In Progress" {% if complaint.status == 'In Progress' %}selected{% endif %}>In Progress</option>
+                        <option value="Resolved" {% if complaint.status == 'Resolved' %}selected{% endif %}>Resolved</option>
+                        <option value="Rejected" {% if complaint.status == 'Rejected' %}selected{% endif %}>Rejected</option>
+                    </select>
+                </div>
+                
+                <input type="hidden" name="action" value="update_status">
+                <button type="submit" class="btn btn-primary btn-block">
+                    <i class="fas fa-check"></i> Update Status
+                </button>
+            </form>
+            
+            <!-- Update Priority Form -->
+            <form method="POST" class="action-form">
+                <h4><i class="fas fa-exclamation-triangle"></i> Update Priority</h4>
+                
+                <div class="form-group">
+                    <label class="form-label">Priority Level</label>
+                    <select name="priority" class="form-control" required>
+                        <option value="Low" {% if complaint.priority == 'Low' %}selected{% endif %}>Low</option>
+                        <option value="Medium" {% if complaint.priority == 'Medium' %}selected{% endif %}>Medium</option>
+                        <option value="High" {% if complaint.priority == 'High' %}selected{% endif %}>High</option>
+                        <option value="Critical" {% if complaint.priority == 'Critical' %}selected{% endif %}>Critical</option>
+                    </select>
+                </div>
+                
+                <input type="hidden" name="action" value="update_priority">
+                <button type="submit" class="btn btn-warning btn-block">
+                    <i class="fas fa-flag"></i> Update Priority
+                </button>
+            </form>
+            
+            <!-- Reassign Department Form -->
+            <form method="POST" class="action-form">
+                <h4><i class="fas fa-exchange-alt"></i> Reassign Department</h4>
+                
+                <div class="form-group">
+                    <label class="form-label">Department</label>
+                    <select name="department_id" class="form-control" required>
+                        <option value="">Select Department</option>
+                        {% for dept in departments %}
+                        <option value="{{ dept.id }}" 
+                                {% if complaint.department and complaint.department.id == dept.id %}selected{% endif %}>
+                            {{ dept.name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <input type="hidden" name="action" value="reassign">
+                <button type="submit" class="btn btn-secondary btn-block">
+                    <i class="fas fa-building"></i> Reassign
+                </button>
+            </form>
+            
+            <!-- Assign to Staff Form -->
+            <form method="POST" class="action-form">
+                <h4><i class="fas fa-user-tie"></i> Assign to Staff</h4>
+                
+                <div class="form-group">
+                    <label class="form-label">Government Staff</label>
+                    <select name="assigned_to" class="form-control">
+                        <option value="">Select Staff Member</option>
+                        {% for user in government_users %}
+                        <option value="{{ user.id }}" 
+                                {% if complaint.assigned_to == user.id %}selected{% endif %}>
+                            {{ user.username }} ({{ user.email }})
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <input type="hidden" name="action" value="assign_staff">
+                <button type="submit" class="btn btn-info btn-block">
+                    <i class="fas fa-user-check"></i> Assign Staff
+                </button>
+            </form>
+            
+            <!-- Quick Actions -->
+            <div style="margin-top: 30px; border-top: 1px solid #eee; padding-top: 20px;">
+                <h4><i class="fas fa-bolt"></i> Quick Actions</h4>
+                
+                <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 15px;">
+                    <button class="btn btn-success" onclick="markAsResolved()">
+                        <i class="fas fa-check-circle"></i> Mark as Resolved
+                    </button>
+                    
+                    <button class="btn btn-danger" onclick="rejectComplaint()">
+                        <i class="fas fa-times-circle"></i> Reject Complaint
+                    </button>
+                    
+                    <a href="mailto:{% if complaint.citizen %}{{ complaint.citizen.email }}{% endif %}?subject=Update on Complaint #{{ complaint.id }}" 
+                       class="btn btn-outline">
+                        <i class="fas fa-envelope"></i> Contact Citizen
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Image Modal -->
+<div id="imageModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.9); z-index: 10000; justify-content: center; align-items: center;">
+    <div style="position: relative; max-width: 90%; max-height: 90%;">
+        <img id="modalImage" src="" alt="" style="max-width: 100%; max-height: 90vh;">
+        <button onclick="closeImageModal()" style="position: absolute; top: 10px; right: 10px; background: none; border: none; color: white; font-size: 30px; cursor: pointer;">
+            &times;
+        </button>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function initializeComplaintMap() {
+    if (!document.getElementById('complaintMap')) return;
+    
+    const lat = {{ complaint.latitude if complaint.latitude else 20.5937 }};
+    const lng = {{ complaint.longitude if complaint.longitude else 78.9629 }};
+    
+    const map = L.map('complaintMap').setView([lat, lng], 15);
+    
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetmap contributors'
+    }).addTo(map);
+    
+    // Add marker
+    L.marker([lat, lng]).addTo(map)
+        .bindPopup(`<strong>{{ complaint.title }}</strong><br>{{ complaint.address }}`)
+        .openPopup();
+}
+
+function openImageModal(src) {
+    document.getElementById('modalImage').src = src;
+    document.getElementById('imageModal').style.display = 'flex';
+}
+
+function closeImageModal() {
+    document.getElementById('imageModal').style.display = 'none';
+}
+
+function markAsResolved() {
+    if (confirm('Are you sure you want to mark this complaint as resolved?')) {
+        document.querySelector('select[name="status"]').value = 'Resolved';
+        document.querySelector('input[name="action"]').value = 'update_status';
+        document.querySelector('form.action-form').submit();
+    }
+}
+
+function rejectComplaint() {
+    if (confirm('Are you sure you want to reject this complaint?')) {
+        document.querySelector('select[name="status"]').value = 'Rejected';
+        document.querySelector('input[name="action"]').value = 'update_status';
+        document.querySelector('form.action-form').submit();
+    }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    initializeComplaintMap();
+    
+    // Close modal on escape key
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            closeImageModal();
+        }
+    });
+    
+    // Close modal on background click
+    document.getElementById('imageModal').addEventListener('click', function(e) {
+        if (e.target === this) {
+            closeImageModal();
+        }
+    });
+});
+</script>
+{% endblock %}

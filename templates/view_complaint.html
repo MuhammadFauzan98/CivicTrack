@@ -1,0 +1,470 @@
+{% extends "layout.html" %}
+
+{% block title %}Complaint #{{ complaint.id }} - CivicTrack{% endblock %}
+
+{% block extra_css %}
+<style>
+    .complaint-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 30px;
+    }
+    
+    .status-display {
+        display: flex;
+        align-items: center;
+        gap: 20px;
+    }
+    
+    .complaint-content {
+        display: grid;
+        grid-template-columns: 2fr 1fr;
+        gap: 30px;
+    }
+    
+    @media (max-width: 768px) {
+        .complaint-content {
+            grid-template-columns: 1fr;
+        }
+    }
+    
+    .info-card {
+        background-color: white;
+        border-radius: var(--radius);
+        box-shadow: var(--shadow);
+        padding: 20px;
+        margin-bottom: 20px;
+    }
+    
+    .info-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 15px;
+        margin-top: 15px;
+    }
+    
+    .info-item {
+        padding: 10px;
+        background-color: var(--light);
+        border-radius: var(--radius);
+    }
+    
+    .info-label {
+        font-weight: bold;
+        color: var(--dark);
+        margin-bottom: 5px;
+        font-size: 14px;
+    }
+    
+    .info-value {
+        font-size: 16px;
+    }
+    
+    .action-card {
+        background-color: white;
+        border-radius: var(--radius);
+        box-shadow: var(--shadow);
+        padding: 20px;
+        position: sticky;
+        top: 100px;
+    }
+    
+    .complaint-image {
+        width: 100%;
+        max-height: 300px;
+        object-fit: cover;
+        border-radius: var(--radius);
+        margin-top: 15px;
+    }
+    
+    .map-mini {
+        height: 200px;
+        border-radius: var(--radius);
+        overflow: hidden;
+        margin-top: 15px;
+    }
+    
+    .timeline {
+        position: relative;
+        padding-left: 30px;
+    }
+    
+    .timeline:before {
+        content: '';
+        position: absolute;
+        left: 10px;
+        top: 0;
+        bottom: 0;
+        width: 2px;
+        background-color: var(--light);
+    }
+    
+    .timeline-item {
+        position: relative;
+        margin-bottom: 20px;
+    }
+    
+    .timeline-item:before {
+        content: '';
+        position: absolute;
+        left: -26px;
+        top: 5px;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background-color: var(--secondary);
+    }
+    
+    .timeline-date {
+        font-size: 12px;
+        color: var(--gray);
+        margin-bottom: 5px;
+    }
+    
+    .timeline-content {
+        background-color: var(--light);
+        padding: 10px;
+        border-radius: var(--radius);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <!-- Complaint Header -->
+    <div class="complaint-header">
+        <div>
+            <h1>
+                <i class="fas fa-ticket-alt"></i> 
+                Complaint #{{ complaint.id }}: {{ complaint.title }}
+            </h1>
+            <p>Submitted on {{ complaint.created_at.strftime('%B %d, %Y at %H:%M') }}</p>
+        </div>
+        
+        <div class="status-display">
+            <div style="text-align: center;">
+                <div style="font-size: 14px; color: var(--gray); margin-bottom: 5px;">Status</div>
+                <span class="status-badge status-{{ complaint.status|lower|replace(' ', '-') }}" 
+                      style="font-size: 16px; padding: 8px 16px;">
+                    {{ complaint.status }}
+                </span>
+            </div>
+            
+            <div style="text-align: center;">
+                <div style="font-size: 14px; color: var(--gray); margin-bottom: 5px;">Priority</div>
+                <span class="priority-badge priority-{{ complaint.priority|lower }}" 
+                      style="font-size: 16px; padding: 8px 16px;">
+                    {{ complaint.priority }}
+                </span>
+            </div>
+        </div>
+    </div>
+    
+    <div class="complaint-content">
+        <!-- Left Column: Complaint Details -->
+        <div>
+            <!-- Description -->
+            <div class="info-card">
+                <h3><i class="fas fa-align-left"></i> Description</h3>
+                <p style="white-space: pre-line; line-height: 1.6;">{{ complaint.description }}</p>
+            </div>
+            
+            <!-- Quick Info -->
+            <div class="info-card">
+                <h3><i class="fas fa-info-circle"></i> Quick Information</h3>
+                
+                <div class="info-grid">
+                    <div class="info-item">
+                        <div class="info-label">Category</div>
+                        <div class="info-value">
+                            <span class="badge badge-secondary">
+                                {{ complaint.category|replace('_', ' ')|title }}
+                            </span>
+                        </div>
+                    </div>
+                    
+                    <div class="info-item">
+                        <div class="info-label">Department</div>
+                        <div class="info-value">
+                            {% if complaint.department %}
+                                {{ complaint.department.name }}
+                            {% else %}
+                                <span class="text-muted">Not assigned yet</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <div class="info-item">
+                        <div class="info-label">Assigned To</div>
+                        <div class="info-value">
+                            {% if complaint.assigned_to %}
+                                Staff Member
+                            {% else %}
+                                <span class="text-muted">Not assigned</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <div class="info-item">
+                        <div class="info-label">Last Updated</div>
+                        <div class="info-value">
+                            {{ complaint.updated_at.strftime('%Y-%m-%d %H:%M') }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Location -->
+            <div class="info-card">
+                <h3><i class="fas fa-map-marker-alt"></i> Location</h3>
+                <p><i class="fas fa-map-pin"></i> {{ complaint.address }}</p>
+                
+                <div id="complaintLocationMap" class="map-mini"></div>
+                
+                <div style="display: flex; gap: 10px; margin-top: 10px; font-size: 14px; color: var(--gray);">
+                    <span><i class="fas fa-globe-asia"></i> Latitude: {{ complaint.latitude }}</span>
+                    <span><i class="fas fa-globe-asia"></i> Longitude: {{ complaint.longitude }}</span>
+                </div>
+            </div>
+            
+            <!-- Attached Image -->
+            {% if complaint.image_path %}
+            <div class="info-card">
+                <h3><i class="fas fa-camera"></i> Attached Photo</h3>
+                <img src="{{ url_for('static', filename=complaint.image_path) }}" 
+                     alt="Complaint Image" 
+                     class="complaint-image">
+            </div>
+            {% endif %}
+            
+            <!-- Activity Timeline -->
+            <div class="info-card">
+                <h3><i class="fas fa-history"></i> Activity Timeline</h3>
+                
+                <div class="timeline">
+                    <div class="timeline-item">
+                        <div class="timeline-date">{{ complaint.created_at.strftime('%Y-%m-%d %H:%M') }}</div>
+                        <div class="timeline-content">
+                            <strong>Complaint Submitted</strong>
+                            <p>You submitted this complaint</p>
+                        </div>
+                    </div>
+                    
+                    {% if complaint.department %}
+                    <div class="timeline-item">
+                        <div class="timeline-date">{{ complaint.created_at.strftime('%Y-%m-%d') }}</div>
+                        <div class="timeline-content">
+                            <strong>Assigned to Department</strong>
+                            <p>Assigned to {{ complaint.department.name }}</p>
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    {% if complaint.status == 'In Progress' %}
+                    <div class="timeline-item">
+                        <div class="timeline-date">{{ complaint.updated_at.strftime('%Y-%m-%d') }}</div>
+                        <div class="timeline-content">
+                            <strong>Work Started</strong>
+                            <p>Department has started working on your complaint</p>
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    {% if complaint.status == 'Resolved' and complaint.resolved_at %}
+                    <div class="timeline-item">
+                        <div class="timeline-date">{{ complaint.resolved_at.strftime('%Y-%m-%d %H:%M') }}</div>
+                        <div class="timeline-content">
+                            <strong>Complaint Resolved</strong>
+                            <p>Your complaint has been resolved</p>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <!-- Right Column: Actions & Feedback -->
+        <div>
+            <!-- Actions Card -->
+            <div class="action-card">
+                <h3><i class="fas fa-cog"></i> Actions</h3>
+                
+                <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 20px;">
+                    {% if complaint.status != 'Resolved' %}
+                    <a href="{{ url_for('complaints.new_complaint') }}" class="btn btn-primary">
+                        <i class="fas fa-plus-circle"></i> Report Similar Issue
+                    </a>
+                    {% endif %}
+                    
+                    <button class="btn btn-outline" onclick="shareComplaint()">
+                        <i class="fas fa-share-alt"></i> Share This Complaint
+                    </button>
+                    
+                    <button class="btn btn-outline" onclick="printComplaint()">
+                        <i class="fas fa-print"></i> Print Details
+                    </button>
+                    
+                    <a href="{{ url_for('complaints.dashboard') }}" class="btn btn-outline">
+                        <i class="fas fa-arrow-left"></i> Back to Dashboard
+                    </a>
+                </div>
+                
+                <!-- Department Contact -->
+                {% if complaint.department %}
+                <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee;">
+                    <h4><i class="fas fa-building"></i> Department Contact</h4>
+                    <p style="margin: 10px 0;">{{ complaint.department.name }}</p>
+                    <p style="font-size: 14px; color: var(--gray);">
+                        <i class="fas fa-envelope"></i> {{ complaint.department.email }}
+                    </p>
+                    <a href="mailto:{{ complaint.department.email }}?subject=Regarding Complaint #{{ complaint.id }}" 
+                       class="btn btn-outline btn-small" style="margin-top: 10px;">
+                        <i class="fas fa-envelope"></i> Contact Department
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+            
+            <!-- Feedback Card -->
+            {% if complaint.status == 'Resolved' and not complaint.feedback %}
+            <div class="action-card" style="margin-top: 20px;">
+                <h3><i class="fas fa-star"></i> Provide Feedback</h3>
+                <p style="margin: 15px 0; color: var(--gray);">
+                    Your feedback helps us improve our services. Please rate your experience.
+                </p>
+                
+                <form method="POST" action="{{ url_for('complaints.submit_feedback', id=complaint.id) }}">
+                    {{ feedback_form.hidden_tag() }}
+                    
+                    <div class="form-group">
+                        {{ feedback_form.rating.label(class="form-label") }}
+                        {{ feedback_form.rating(class="form-control") }}
+                    </div>
+                    
+                    <div class="form-group">
+                        {{ feedback_form.comment.label(class="form-label") }}
+                        {{ feedback_form.comment(class="form-control", placeholder="Optional: Share your experience or suggestions", rows=3) }}
+                    </div>
+                    
+                    <div class="form-group">
+                        {{ feedback_form.submit(class="btn btn-success btn-block") }}
+                    </div>
+                </form>
+            </div>
+            {% elif complaint.feedback %}
+            <div class="action-card" style="margin-top: 20px;">
+                <h3><i class="fas fa-star"></i> Your Feedback</h3>
+                
+                <div style="text-align: center; margin: 20px 0;">
+                    <div style="font-size: 24px; margin-bottom: 10px;">
+                        {% for i in range(5) %}
+                            {% if i < complaint.feedback.rating %}
+                                <i class="fas fa-star" style="color: var(--warning);"></i>
+                            {% else %}
+                                <i class="far fa-star" style="color: #ddd;"></i>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                    <p><strong>{{ complaint.feedback.rating }} out of 5 stars</strong></p>
+                    
+                    {% if complaint.feedback.comment %}
+                    <div style="background-color: var(--light); padding: 15px; border-radius: var(--radius); margin-top: 15px;">
+                        <p style="font-style: italic;">"{{ complaint.feedback.comment }}"</p>
+                    </div>
+                    {% endif %}
+                    
+                    <p style="font-size: 12px; color: var(--gray); margin-top: 15px;">
+                        Submitted on {{ complaint.feedback.created_at.strftime('%Y-%m-%d') }}
+                    </p>
+                </div>
+            </div>
+            {% endif %}
+            
+            <!-- Status Updates -->
+            <div class="action-card" style="margin-top: 20px;">
+                <h3><i class="fas fa-bell"></i> Status Updates</h3>
+                <p style="margin: 15px 0; color: var(--gray);">
+                    You will receive email notifications when the status of this complaint changes.
+                </p>
+                
+                <div class="form-check" style="margin-top: 15px;">
+                    <input type="checkbox" class="form-check-input" id="emailNotifications" checked>
+                    <label class="form-check-label" for="emailNotifications">
+                        Receive email notifications
+                    </label>
+                </div>
+                
+                <div class="form-check" style="margin-top: 10px;">
+                    <input type="checkbox" class="form-check-input" id="smsNotifications">
+                    <label class="form-check-label" for="smsNotifications">
+                        Receive SMS notifications
+                    </label>
+                </div>
+                
+                <button class="btn btn-outline btn-small" style="margin-top: 15px;">
+                    <i class="fas fa-save"></i> Save Preferences
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function initializeComplaintMap() {
+    if (!document.getElementById('complaintLocationMap')) return;
+    
+    const lat = {{ complaint.latitude if complaint.latitude else 20.5937 }};
+    const lng = {{ complaint.longitude if complaint.longitude else 78.9629 }};
+    
+    const map = L.map('complaintLocationMap').setView([lat, lng], 15);
+    
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetmap contributors'
+    }).addTo(map);
+    
+    // Add marker
+    L.marker([lat, lng]).addTo(map)
+        .bindPopup(`<strong>{{ complaint.title }}</strong>`)
+        .openPopup();
+}
+
+function shareComplaint() {
+    const shareData = {
+        title: 'Complaint #{{ complaint.id }} - CivicTrack',
+        text: 'Check out this urban issue I reported on CivicTrack',
+        url: window.location.href
+    };
+    
+    if (navigator.share) {
+        navigator.share(shareData)
+            .then(() => showNotification('Complaint shared successfully!', 'success'))
+            .catch(error => {
+                console.log('Error sharing:', error);
+                copyToClipboard(window.location.href);
+            });
+    } else {
+        copyToClipboard(window.location.href);
+    }
+}
+
+function copyToClipboard(text) {
+    navigator.clipboard.writeText(text)
+        .then(() => showNotification('Link copied to clipboard!', 'success'))
+        .catch(err => {
+            console.error('Failed to copy: ', err);
+            showNotification('Failed to copy link', 'danger');
+        });
+}
+
+function printComplaint() {
+    window.print();
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    initializeComplaintMap();
+});
+</script>
+{% endblock %}
