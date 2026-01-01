@@ -32,11 +32,23 @@
                 
                 <div class="form-group">
                     {{ form.user_type.label(class="form-label") }}
-                    {{ form.user_type(class="form-control") }}
+                    {{ form.user_type(class="form-control", id="user_type") }}
                     <small class="text-muted">
                         <i class="fas fa-info-circle"></i> 
                         Citizens can report issues. Government officials can manage and resolve issues.
                     </small>
+                </div>
+                
+                <div class="form-group" id="govt_id_group" style="display: none;">
+                    {{ form.govt_official_id.label(class="form-label") }}
+                    {{ form.govt_official_id(class="form-control", placeholder="Enter your Government Official ID") }}
+                    <small class="text-muted">
+                        <i class="fas fa-info-circle"></i> 
+                        Required for government officials to verify legitimacy.
+                    </small>
+                    {% for error in form.govt_official_id.errors %}
+                        <span class="text-danger">{{ error }}</span>
+                    {% endfor %}
                 </div>
                 
                 <div class="form-group">
@@ -75,4 +87,24 @@
         </div>
     </div>
 </div>
+
+<script>
+    // Show/hide Government Official ID field based on user type selection
+    document.getElementById('user_type').addEventListener('change', function() {
+        const govtIdGroup = document.getElementById('govt_id_group');
+        if (this.value === 'government') {
+            govtIdGroup.style.display = 'block';
+        } else {
+            govtIdGroup.style.display = 'none';
+        }
+    });
+    
+    // Check on page load if government is already selected (e.g., after validation error)
+    window.addEventListener('load', function() {
+        const userTypeSelect = document.getElementById('user_type');
+        if (userTypeSelect.value === 'government') {
+            document.getElementById('govt_id_group').style.display = 'block';
+        }
+    });
+</script>
 {% endblock %}

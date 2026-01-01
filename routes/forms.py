@@ -1,7 +1,7 @@
 from flask_wtf import FlaskForm
 from flask_wtf.file import FileField, FileAllowed
 from wtforms import StringField, PasswordField, BooleanField, SubmitField, TextAreaField, SelectField, FloatField
-from wtforms.validators import DataRequired, Email, EqualTo, Length, ValidationError
+from wtforms.validators import DataRequired, Email, EqualTo, Length, ValidationError, Optional
 
 class LoginForm(FlaskForm):
     email = StringField('Email', validators=[DataRequired(), Email()])
@@ -16,6 +16,7 @@ class RegistrationForm(FlaskForm):
         ('citizen', 'Citizen'),
         ('government', 'Government Official')
     ], validators=[DataRequired()])
+    govt_official_id = StringField('Government Official ID', validators=[Optional(), Length(min=3, max=100)])
     password = PasswordField('Password', validators=[DataRequired(), Length(min=6)])
     confirm_password = PasswordField('Confirm Password', 
                                      validators=[DataRequired(), EqualTo('password')])
@@ -33,6 +34,16 @@ class RegistrationForm(FlaskForm):
         user = User.query.filter_by(email=email.data).first()
         if user is not None:
             raise ValidationError('Email already registered.')
+    
+    def validate_govt_official_id(self, govt_official_id):
+        # Only validate if user selected government official and provided an ID
+        if self.user_type.data == 'government':
+            if not govt_official_id.data:
+                raise ValidationError('Government Official ID is required for government officials.')
+            from models.models import User
+            user = User.query.filter_by(govt_official_id=govt_official_id.data).first()
+            if user is not None:
+                raise ValidationError('This Government Official ID is already registered.')
 
 class ComplaintForm(FlaskForm):
     title = StringField('Issue Title', validators=[DataRequired(), Length(max=200)])

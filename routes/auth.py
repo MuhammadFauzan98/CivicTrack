@@ -21,9 +21,12 @@ def safe_url_for(*endpoint_candidates, **values):
 
 @auth_bp.route('/login', methods=['GET', 'POST'])
 def login():
-    # If user is already authenticated, send them to the most likely dashboard
+    # If user is already authenticated, redirect to appropriate dashboard
     if current_user.is_authenticated:
-        return redirect(safe_url_for('complaints.dashboard', 'admin.dashboard', 'dashboard'))
+        if current_user.is_admin or current_user.is_government:
+            return redirect(safe_url_for('admin.dashboard', 'complaints.dashboard', 'dashboard'))
+        else:
+            return redirect(safe_url_for('complaints.dashboard', 'dashboard'))
 
     form = LoginForm()
     if form.validate_on_submit():
@@ -37,8 +40,11 @@ def login():
 
         # Validate 'next' — must be a relative URL (no netloc)
         if not next_page or urlparse(next_page).netloc != '':
-            # Prefer complaints dashboard, then admin dashboard, then index
-            next_page = safe_url_for('complaints.dashboard', 'admin.dashboard', 'dashboard')
+            # Redirect based on user type
+            if user.is_admin or user.is_government:
+                next_page = safe_url_for('admin.dashboard', 'complaints.dashboard', 'dashboard')
+            else:
+                next_page = safe_url_for('complaints.dashboard', 'dashboard')
 
         return redirect(next_page)
 
@@ -47,14 +53,18 @@ def login():
 @auth_bp.route('/register', methods=['GET', 'POST'])
 def register():
     if current_user.is_authenticated:
-        return redirect(safe_url_for('complaints.dashboard', 'admin.dashboard', 'dashboard'))
+        if current_user.is_admin or current_user.is_government:
+            return redirect(safe_url_for('admin.dashboard', 'complaints.dashboard', 'dashboard'))
+        else:
+            return redirect(safe_url_for('complaints.dashboard', 'dashboard'))
 
     form = RegistrationForm()
     if form.validate_on_submit():
         user = User(
             username=form.username.data,
             email=form.email.data,
-            is_government=form.user_type.data == 'government'
+            is_government=form.user_type.data == 'government',
+            govt_official_id=form.govt_official_id.data if form.user_type.data == 'government' else None
         )
         user.set_password(form.password.data)
 

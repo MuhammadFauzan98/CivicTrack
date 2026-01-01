@@ -13,6 +13,7 @@ class User(UserMixin, db.Model):
     password_hash = db.Column(db.String(256), nullable=False)
     is_admin = db.Column(db.Boolean, default=False)
     is_government = db.Column(db.Boolean, default=False)
+    govt_official_id = db.Column(db.String(100), unique=True, nullable=True)  # Government ID for verification
     department_id = db.Column(db.Integer, db.ForeignKey('departments.id'))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     

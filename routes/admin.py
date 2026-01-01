@@ -1,9 +1,10 @@
-from flask import Blueprint, render_template, redirect, url_for, flash, request, jsonify
+from flask import Blueprint, render_template, redirect, url_for, flash, request, jsonify, make_response
 from flask_login import login_required, current_user
 from extensions import db
 from models.models import Complaint, User, Department, Feedback
 from datetime import datetime, timedelta
 import json
+import io
 
 admin_bp = Blueprint('admin', __name__)
 
@@ -168,3 +169,117 @@ def analytics_api():
         'avg_resolution_time': round(avg_resolution_time, 1),
         'monthly_categories': dict(monthly_categories)
     })
+
+@admin_bp.route('/admin/export/pdf')
+@login_required
+def export_pdf():
+    """Export recent complaints to PDF"""
+    try:
+        from reportlab.lib import colors
+        from reportlab.lib.pagesizes import letter, landscape
+        from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+        from reportlab.lib.units import inch
+        
+        # Get complaints data
+        complaints = Complaint.query.order_by(Complaint.created_at.desc()).limit(50).all()
+        
+        # Create PDF in memory
+        buffer = io.BytesIO()
+        doc = SimpleDocTemplate(buffer, pagesize=landscape(letter), 
+                              rightMargin=30, leftMargin=30,
+                              topMargin=30, bottomMargin=30)
+        
+        # Container for PDF elements
+        elements = []
+        styles = getSampleStyleSheet()
+        
+        # Add title
+        title_style = ParagraphStyle(
+            'CustomTitle',
+            parent=styles['Heading1'],
+            fontSize=24,
+            textColor=colors.HexColor('#2c3e50'),
+            spaceAfter=30,
+            alignment=1  # Center
+        )
+        title = Paragraph("CivicTrack - Recent Complaints Report", title_style)
+        elements.append(title)
+        
+        # Add generation date
+        date_style = ParagraphStyle(
+            'DateStyle',
+            parent=styles['Normal'],
+            fontSize=10,
+            textColor=colors.gray,
+            spaceAfter=20,
+            alignment=1
+        )
+        date_text = Paragraph(f"Generated on: {datetime.now().strftime('%B %d, %Y at %I:%M %p')}", date_style)
+        elements.append(date_text)
+        elements.append(Spacer(1, 0.2*inch))
+        
+        # Prepare table data
+        data = [['ID', 'Title', 'Category', 'Status', 'Priority', 'Department', 'Date']]
+        
+        for complaint in complaints:
+            dept_name = complaint.department.name if complaint.department else 'Unassigned'
+            title_text = complaint.title[:40] + '...' if len(complaint.title) > 40 else complaint.title
+            
+            data.append([
+                f'#{complaint.id}',
+                title_text,
+                complaint.category.replace('_', ' ').title(),
+                complaint.status,
+                complaint.priority,
+                dept_name[:20],
+                complaint.created_at.strftime('%Y-%m-%d')
+            ])
+        
+        # Create table
+        table = Table(data, colWidths=[0.6*inch, 2.2*inch, 1.2*inch, 1*inch, 0.9*inch, 1.5*inch, 1*inch])
+        
+        # Style the table
+        table.setStyle(TableStyle([
+            # Header styling
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#3498db')),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 10),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+            
+            # Body styling
+            ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+            ('TEXTCOLOR', (0, 1), (-1, -1), colors.black),
+            ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+            ('FONTSIZE', (0, 1), (-1, -1), 8),
+            ('GRID', (0, 0), (-1, -1), 1, colors.black),
+            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.lightgrey]),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('TOPPADDING', (0, 1), (-1, -1), 6),
+            ('BOTTOMPADDING', (0, 1), (-1, -1), 6),
+        ]))
+        
+        elements.append(table)
+        
+        # Build PDF
+        doc.build(elements)
+        
+        # Get PDF data
+        pdf_data = buffer.getvalue()
+        buffer.close()
+        
+        # Create response
+        response = make_response(pdf_data)
+        response.headers['Content-Type'] = 'application/pdf'
+        response.headers['Content-Disposition'] = f'attachment; filename=complaints_report_{datetime.now().strftime("%Y%m%d_%H%M%S")}.pdf'
+        
+        return response
+        
+    except ImportError:
+        flash('PDF generation requires reportlab library. Install it with: pip install reportlab', 'danger')
+        return redirect(url_for('admin.admin_dashboard'))
+    except Exception as e:
+        flash(f'Error generating PDF: {str(e)}', 'danger')
+        return redirect(url_for('admin.admin_dashboard'))
