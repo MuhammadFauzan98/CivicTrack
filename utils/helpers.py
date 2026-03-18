@@ -4,7 +4,6 @@ import string
 from datetime import datetime, timedelta
 from werkzeug.utils import secure_filename
 from PIL import Image
-import io
 
 def allowed_file(filename, allowed_extensions=None):
     """Check if file extension is allowed"""

@@ -19,12 +19,14 @@
             </a>
             
             <div class="nav-links">
-                <a href="{{ url_for('index') }}" class="nav-link {% if request.endpoint == 'index' %}active{% endif %}">
-                    <i class="fas fa-home"></i> Home
-                </a>
-                <a href="{{ url_for('features') }}" class="nav-link {% if request.endpoint == 'features' %}active{% endif %}">
-                    <i class="fas fa-star"></i> Features
-                </a>
+                {% if not current_user.is_authenticated %}
+                    <a href="{{ url_for('index') }}" class="nav-link {% if request.endpoint == 'index' %}active{% endif %}">
+                        <i class="fas fa-home"></i> Home
+                    </a>
+                    <a href="{{ url_for('features') }}" class="nav-link {% if request.endpoint == 'features' %}active{% endif %}">
+                        <i class="fas fa-star"></i> Features
+                    </a>
+                {% endif %}
                 
                 {% if current_user.is_authenticated %}
                     {% if current_user.is_admin or current_user.is_government %}

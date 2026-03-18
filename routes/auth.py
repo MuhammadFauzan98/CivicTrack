@@ -24,7 +24,7 @@ def login():
     # If user is already authenticated, redirect to appropriate dashboard
     if current_user.is_authenticated:
         if current_user.is_admin or current_user.is_government:
-            return redirect(safe_url_for('admin.dashboard', 'complaints.dashboard', 'dashboard'))
+            return redirect(safe_url_for('admin.admin_dashboard', 'complaints.dashboard', 'dashboard'))
         else:
             return redirect(safe_url_for('complaints.dashboard', 'dashboard'))
 
@@ -42,7 +42,7 @@ def login():
         if not next_page or urlparse(next_page).netloc != '':
             # Redirect based on user type
             if user.is_admin or user.is_government:
-                next_page = safe_url_for('admin.dashboard', 'complaints.dashboard', 'dashboard')
+                next_page = safe_url_for('admin.admin_dashboard', 'complaints.dashboard', 'dashboard')
             else:
                 next_page = safe_url_for('complaints.dashboard', 'dashboard')
 
@@ -54,7 +54,7 @@ def login():
 def register():
     if current_user.is_authenticated:
         if current_user.is_admin or current_user.is_government:
-            return redirect(safe_url_for('admin.dashboard', 'complaints.dashboard', 'dashboard'))
+            return redirect(safe_url_for('admin.admin_dashboard', 'complaints.dashboard', 'dashboard'))
         else:
             return redirect(safe_url_for('complaints.dashboard', 'dashboard'))
 

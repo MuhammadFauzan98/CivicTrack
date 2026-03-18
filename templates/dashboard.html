@@ -76,12 +76,12 @@
             <a href="#recent" class="btn btn-outline">
                 <i class="fas fa-history"></i> View Recent Issues
             </a>
-            <a href="{{ url_for('complaints.get_complaints_api') }}" class="btn btn-outline" id="viewOnMapBtn">
+            <a href="{{ url_for('complaints.complaints_map') }}" class="btn btn-outline" id="viewOnMapBtn">
                 <i class="fas fa-map-marked-alt"></i> View on Map
             </a>
-            <button class="btn btn-outline" id="downloadReportBtn">
+            <a href="{{ url_for('complaints.export_user_complaints_pdf') }}" class="btn btn-outline" id="downloadReportBtn">
                 <i class="fas fa-download"></i> Download Report
-            </button>
+            </a>
         </div>
     </div>
     
@@ -208,32 +208,6 @@ document.addEventListener('DOMContentLoaded', function() {
     if (typeof L !== 'undefined') {
         initializeUserComplaintsMap();
     }
-    
-    // Download report button
-    document.getElementById('downloadReportBtn').addEventListener('click', function() {
-        showNotification('Generating report... This feature is under development.', 'info');
-    });
-    
-    // View on map button
-    document.getElementById('viewOnMapBtn').addEventListener('click', function(e) {
-        e.preventDefault();
-        
-        fetch('{{ url_for("complaints.get_complaints_api") }}')
-            .then(response => response.json())
-            .then(data => {
-                if (data.length > 0) {
-                    // Create a new page or modal with full map
-                    showNotification('Opening full map view...', 'info');
-                    // In a full implementation, this would open a modal or new page
-                } else {
-                    showNotification('No complaints to display on map.', 'warning');
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                showNotification('Error loading map data.', 'danger');
-            });
-    });
 });
 
 function initializeUserComplaintsMap() {
@@ -243,6 +217,62 @@ function initializeUserComplaintsMap() {
         attribution: '© OpenStreetMap contributors'
     }).addTo(map);
     
+    // Auto-detect user location
+    if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+            function(position) {
+                const userLat = position.coords.latitude;
+                const userLng = position.coords.longitude;
+                
+                // Add user location marker (blue)
+                const userMarker = L.marker([userLat, userLng], {
+                    icon: L.divIcon({
+                        html: '<div style="background: #3498db; border: 3px solid white; border-radius: 50%; width: 20px; height: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.2);"></div>',
+                        iconSize: [20, 20],
+                        className: 'user-location-marker'
+                    })
+                }).addTo(map);
+                
+                // Add popup for user location
+                userMarker.bindPopup('<strong>Your Current Location</strong>', { 
+                    autoClose: false,
+                    closeButton: true
+                });
+                
+                // Add accuracy circle
+                const accuracyCircle = L.circle([userLat, userLng], {
+                    color: '#3498db',
+                    fillColor: '#3498db',
+                    fillOpacity: 0.1,
+                    radius: position.coords.accuracy,
+                    weight: 1
+                }).addTo(map);
+                
+                // Center map on user location
+                map.setView([userLat, userLng], 13);
+                
+                // Load complaints after getting location
+                loadComplaintsOnMap(map, [userLat, userLng]);
+            },
+            function(error) {
+                console.warn('Geolocation error:', error.message);
+                // Continue loading complaints with default location
+                loadComplaintsOnMap(map, [20.5937, 78.9629]);
+            },
+            {
+                enableHighAccuracy: true,
+                timeout: 10000,
+                maximumAge: 0
+            }
+        );
+    } else {
+        // Geolocation not supported, load complaints with default location
+        console.warn('Geolocation not supported by this browser');
+        loadComplaintsOnMap(map, [20.5937, 78.9629]);
+    }
+}
+
+function loadComplaintsOnMap(map, userLocation) {
     // Fetch and display user's complaints
     fetch('{{ url_for("complaints.get_complaints_api") }}')
         .then(response => response.json())
@@ -260,7 +290,7 @@ function initializeUserComplaintsMap() {
                 return;
             }
             
-            let bounds = [];
+            let bounds = [userLocation];
             complaints.forEach(complaint => {
                 if (complaint.latitude && complaint.longitude) {
                     const marker = L.marker([complaint.latitude, complaint.longitude]).addTo(map);
@@ -288,9 +318,11 @@ function initializeUserComplaintsMap() {
                 }
             });
             
-            // Fit map to show all markers
-            if (bounds.length > 0) {
-                map.fitBounds(bounds);
+            // If there are complaints, fit bounds to show all markers including user location
+            if (bounds.length > 1) {
+                const latLngs = bounds.map(b => L.latLng(b[0], b[1]));
+                const group = new L.featureGroup(latLngs.map(latlng => L.marker(latlng)));
+                map.fitBounds(group.getBounds(), { padding: [50, 50] });
             }
         })
         .catch(error => {

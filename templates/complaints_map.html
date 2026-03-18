@@ -1,0 +1,256 @@
+{% extends "layout.html" %}
+
+{% block title %}My Complaints Map - CivicTrack{% endblock %}
+
+{% block extra_css %}
+<style>
+    #fullMap {
+        height: calc(100vh - 100px);
+        width: 100%;
+        position: relative;
+    }
+    
+    .map-controls {
+        position: absolute;
+        top: 20px;
+        left: 20px;
+        z-index: 1000;
+        background: white;
+        padding: 15px;
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    }
+    
+    .map-controls h3 {
+        margin: 0 0 15px 0;
+        font-size: 16px;
+        color: #2c3e50;
+    }
+    
+    .map-control-item {
+        margin-bottom: 10px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 14px;
+    }
+    
+    .map-control-item .color-box {
+        width: 20px;
+        height: 20px;
+        border-radius: 4px;
+        border: 1px solid #ccc;
+    }
+    
+    .stat-badge {
+        background: #f0f0f0;
+        padding: 5px 10px;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: bold;
+        color: #333;
+    }
+    
+    main {
+        padding: 0 !important;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div style="position: relative; height: calc(100vh - 80px);">
+    <div id="fullMap"></div>
+    
+    <!-- Map Controls Legend -->
+    <div class="map-controls">
+        <h3><i class="fas fa-map-marked-alt"></i> Legend</h3>
+        
+        <div class="map-control-item">
+            <div class="color-box" style="background-color: #3498db;"></div>
+            <span>Your Current Location</span>
+        </div>
+        
+        <div class="map-control-item">
+            <div class="color-box" style="background-color: #e74c3c;"></div>
+            <span>Pending</span>
+        </div>
+        
+        <div class="map-control-item">
+            <div class="color-box" style="background-color: #f39c12;"></div>
+            <span>In Progress</span>
+        </div>
+        
+        <div class="map-control-item">
+            <div class="color-box" style="background-color: #27ae60;"></div>
+            <span>Resolved</span>
+        </div>
+        
+        <hr style="margin: 15px 0; border: none; border-top: 1px solid #ddd;">
+        
+        <div id="statsContainer"></div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/map.js') }}"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    initializeComplaintsMap();
+    loadComplaintsStats();
+});
+
+function initializeComplaintsMap() {
+    // Initialize map centered on India
+    const map = L.map('fullMap').setView([20.5937, 78.9629], 5);
+    
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors',
+        maxZoom: 19
+    }).addTo(map);
+    
+    // Auto-detect user location
+    if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+            function(position) {
+                const userLat = position.coords.latitude;
+                const userLng = position.coords.longitude;
+                
+                // Add user location marker (blue)
+                const userMarker = L.marker([userLat, userLng], {
+                    icon: L.divIcon({
+                        html: '<div style="background: #3498db; border: 3px solid white; border-radius: 50%; width: 20px; height: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.2);"></div>',
+                        iconSize: [20, 20],
+                        className: 'user-location-marker'
+                    })
+                }).addTo(map);
+                
+                // Add popup for user location
+                userMarker.bindPopup('<strong>Your Current Location</strong>', { 
+                    autoClose: false,
+                    closeButton: true
+                });
+                
+                // Load complaints after getting location
+                loadComplaintsOnMap(map, [userLat, userLng]);
+            },
+            function(error) {
+                console.warn('Geolocation error:', error.message);
+                // Continue loading complaints with default location
+                loadComplaintsOnMap(map, [20.5937, 78.9629]);
+            },
+            {
+                enableHighAccuracy: true,
+                timeout: 10000,
+                maximumAge: 0
+            }
+        );
+    } else {
+        loadComplaintsOnMap(map, [20.5937, 78.9629]);
+    }
+}
+
+function loadComplaintsOnMap(map, userLocation) {
+    // Fetch all user complaints
+    fetch('{{ url_for("complaints.get_complaints_api") }}')
+        .then(response => response.json())
+        .then(complaints => {
+            if (complaints.length === 0) {
+                // Show empty message
+                const emptyDiv = document.createElement('div');
+                emptyDiv.innerHTML = `
+                    <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); 
+                                background: white; padding: 30px; border-radius: 8px; 
+                                text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,0.2);">
+                        <i class="fas fa-inbox" style="font-size: 60px; color: #ccc; margin-bottom: 20px;"></i>
+                        <h3>No Complaints Yet</h3>
+                        <p>You haven't reported any issues yet.</p>
+                    </div>
+                `;
+                document.getElementById('fullMap').appendChild(emptyDiv);
+                return;
+            }
+            
+            let bounds = [userLocation];
+            
+            complaints.forEach(complaint => {
+                if (complaint.latitude && complaint.longitude) {
+                    // Determine marker color based on status
+                    let iconColor;
+                    if (complaint.status === 'Resolved') iconColor = '#27ae60';
+                    else if (complaint.status === 'In Progress') iconColor = '#f39c12';
+                    else iconColor = '#e74c3c';
+                    
+                    const marker = L.marker([complaint.latitude, complaint.longitude], {
+                        icon: L.divIcon({
+                            html: `<div style="background-color: ${iconColor}; width: 16px; height: 16px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>`,
+                            iconSize: [16, 16]
+                        })
+                    }).addTo(map);
+                    
+                    // Create popup content
+                    const popupContent = `
+                        <div style="max-width: 250px;">
+                            <strong>${complaint.title}</strong><br>
+                            <small>
+                                <b>Category:</b> ${complaint.category.replace('_', ' ').toUpperCase()}<br>
+                                <b>Status:</b> <span style="color: ${iconColor};">${complaint.status}</span><br>
+                                <b>Priority:</b> ${complaint.priority}<br>
+                                <b>Date:</b> ${complaint.created_at}<br>
+                                <b>Location:</b> ${complaint.address}
+                            </small><br><br>
+                            <a href="/complaint/${complaint.id}" class="btn btn-small btn-primary" style="padding: 5px 10px;">View Details</a>
+                        </div>
+                    `;
+                    
+                    marker.bindPopup(popupContent);
+                    
+                    bounds.push([complaint.latitude, complaint.longitude]);
+                }
+            });
+            
+            // Fit map to show all markers including user location
+            if (bounds.length > 1) {
+                const latLngs = bounds.map(b => L.latLng(b[0], b[1]));
+                const group = new L.featureGroup(latLngs.map(latlng => L.marker(latlng)));
+                map.fitBounds(group.getBounds(), { padding: [50, 50] });
+            }
+        })
+        .catch(error => {
+            console.error('Error loading complaints:', error);
+        });
+}
+
+function loadComplaintsStats() {
+    // Fetch and display statistics
+    fetch('{{ url_for("complaints.get_complaints_api") }}')
+        .then(response => response.json())
+        .then(complaints => {
+            const total = complaints.length;
+            const pending = complaints.filter(c => c.status === 'Pending').length;
+            const inProgress = complaints.filter(c => c.status === 'In Progress').length;
+            const resolved = complaints.filter(c => c.status === 'Resolved').length;
+            
+            const statsHtml = `
+                <div class="stat-badge" style="display: block; margin-bottom: 8px;">
+                    <i class="fas fa-clipboard-list"></i> Total: ${total}
+                </div>
+                <div class="stat-badge" style="display: block; margin-bottom: 8px; background: #ffe5e5;">
+                    <i class="fas fa-clock"></i> Pending: ${pending}
+                </div>
+                <div class="stat-badge" style="display: block; margin-bottom: 8px; background: #fff3e0;">
+                    <i class="fas fa-tools"></i> In Progress: ${inProgress}
+                </div>
+                <div class="stat-badge" style="display: block; background: #e8f5e9;">
+                    <i class="fas fa-check-circle"></i> Resolved: ${resolved}
+                </div>
+            `;
+            
+            document.getElementById('statsContainer').innerHTML = statsHtml;
+        })
+        .catch(error => {
+            console.error('Error loading stats:', error);
+        });
+}
+</script>
+{% endblock %}

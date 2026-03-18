@@ -5,11 +5,19 @@
 {% block extra_css %}
 <style>
     .location-picker {
-        height: 300px;
+        height: 400px;
+        width: 100%;
         border-radius: var(--radius);
         overflow: hidden;
         margin: 15px 0;
-        border: 2px dashed #ddd;
+        border: 2px solid #ddd;
+        background-color: #f0f0f0;
+        position: relative;
+    }
+    
+    .location-picker .leaflet-container {
+        height: 100%;
+        width: 100%;
     }
     
     .location-search {
@@ -174,6 +182,12 @@
                             <button type="button" class="btn btn-outline" onclick="searchLocation()">
                                 <i class="fas fa-search"></i> Search
                             </button>
+                            <button type="button" class="btn btn-outline" id="useCurrentLocationBtn" onclick="useCurrentLocation()" title="Use your current location">
+                                <i class="fas fa-location-arrow"></i> Use My Location
+                            </button>
+                        </div>
+                        <div id="locationDetectedMsg" style="display: none; margin-top: 10px; padding: 10px; background-color: #d4edda; border: 1px solid #c3e6cb; border-radius: var(--radius); color: #155724;">
+                            <i class="fas fa-check-circle"></i> <strong>Your location detected!</strong> This map shows your current location. Click elsewhere to adjust.
                         </div>
                     </div>
                     
@@ -264,11 +278,13 @@
 {% endblock %}
 
 {% block extra_js %}
+<script src="{{ url_for('static', filename='js/main.js') }}"></script>
 <script src="{{ url_for('static', filename='js/map.js') }}"></script>
 <script>
 let currentStep = 1;
 let map = null;
 let marker = null;
+let userLocationDetected = false;
 
 document.addEventListener('DOMContentLoaded', function() {
     // Image preview
@@ -285,13 +301,80 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
     
-    // Initialize map for step 2
-    setTimeout(() => {
-        if (document.getElementById('step2')) {
-            initializeLocationPicker();
-        }
-    }, 100);
+    // Auto-detect user location immediately on page load
+    detectUserLocationOnLoad();
+    
+    // Map will be initialized when user clicks Next to go to step 2
 });
+
+// Detect user location as soon as page loads (before step 2)
+function detectUserLocationOnLoad() {
+    if (!navigator.geolocation) {
+        console.warn('Geolocation not supported');
+        return;
+    }
+    
+    navigator.geolocation.getCurrentPosition(
+        function(position) {
+            const lat = position.coords.latitude;
+            const lng = position.coords.longitude;
+            
+            // Store user location
+            window.userLocation = { lat, lng };
+            userLocationDetected = true;
+            
+            // Pre-fill latitude and longitude fields
+            document.getElementById('latitudeInput').value = lat.toFixed(6);
+            document.getElementById('longitudeInput').value = lng.toFixed(6);
+            
+    // Reverse geocode to get address
+            reverseGeocode(lat, lng, function(address) {
+                // Address will be filled in the callback
+            });
+            
+            console.log('User location detected:', lat, lng);
+        },
+        function(error) {
+            console.warn('Geolocation error:', error.message);
+            userLocationDetected = false;
+        },
+        {
+            enableHighAccuracy: true,
+            timeout: 10000,
+            maximumAge: 0
+        }
+    );
+}
+
+// Function to use the stored current location (especially useful on the map)
+function useCurrentLocation() {
+    if (userLocationDetected && window.userLocation) {
+        const lat = window.userLocation.lat;
+        const lng = window.userLocation.lng;
+        
+        // Update form fields
+        document.getElementById('latitudeInput').value = lat.toFixed(6);
+        document.getElementById('longitudeInput').value = lng.toFixed(6);
+        
+        // Update marker on map
+        if (map && marker) {
+            map.removeLayer(marker);
+        }
+        
+        if (map) {
+            marker = L.marker([lat, lng]).addTo(map);
+            marker.openPopup();
+            map.setView([lat, lng], 16);
+        }
+        
+        // Reverse geocode to get address
+        reverseGeocode(lat, lng);
+        
+        showNotification('Using your current location', 'success');
+    } else {
+        showNotification('Your location is still being detected. Please try again in a moment.', 'warning');
+    }
+}
 
 function nextStep() {
     // Validate current step
@@ -308,6 +391,27 @@ function nextStep() {
     // Show next step
     document.getElementById(`step${currentStep}`).classList.add('active');
     document.getElementById(`step${currentStep}-indicator`).classList.add('active');
+    
+    // If moving to step 2, initialize map if not already done
+    if (currentStep === 2) {
+        // Initialize map after container becomes visible
+        setTimeout(() => {
+            if (!map) {
+                initializeLocationPicker();
+            }
+            // Refresh map size to ensure it renders properly
+            if (map && typeof map.invalidateSize === 'function') {
+                map.invalidateSize();
+            }
+        }, 50);
+        
+        if (userLocationDetected) {
+            const locationMsg = document.getElementById('locationDetectedMsg');
+            if (locationMsg) {
+                locationMsg.style.display = 'block';
+            }
+        }
+    }
     
     // If moving to step 3, update review
     if (currentStep === 3) {
@@ -405,17 +509,55 @@ function updateReview() {
 }
 
 function initializeLocationPicker() {
-    // Default to a central location (India)
-    const defaultLat = 20.5937;
-    const defaultLng = 78.9629;
+    // Check if map already exists
+    if (map) {
+        return;
+    }
     
-    map = L.map('locationMap').setView([defaultLat, defaultLng], 13);
+    // Use detected user location or default to India center
+    let initialLat, initialLng, initialZoom;
+    
+    if (userLocationDetected && window.userLocation) {
+        initialLat = window.userLocation.lat;
+        initialLng = window.userLocation.lng;
+        initialZoom = 16;
+    } else {
+        initialLat = 20.5937;
+        initialLng = 78.9629;
+        initialZoom = 13;
+    }
+    
+    // Ensure container exists and is visible before initializing map
+    const mapContainer = document.getElementById('locationMap');
+    if (!mapContainer) {
+        console.error('Map container not found');
+        return;
+    }
+    
+    map = L.map('locationMap').setView([initialLat, initialLng], initialZoom);
     
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '© OpenStreetMap contributors'
     }).addTo(map);
     
-    // Add click event to map
+    // Add marker at initial location (either user location or default)
+    if (userLocationDetected && window.userLocation) {
+        marker = L.marker([initialLat, initialLng], {
+            icon: L.divIcon({
+                html: '<div style="background: #3498db; border: 3px solid white; border-radius: 50%; width: 20px; height: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.2);"></div>',
+                iconSize: [20, 20],
+                className: 'user-location-marker'
+            })
+        }).addTo(map);
+        
+        // Show popup that user location was detected
+        marker.bindPopup('<strong>Your Current Location</strong><br>Click elsewhere to adjust', { 
+            autoClose: false,
+            closeButton: true
+        }).openPopup();
+    }
+    
+    // Add click event to map to update location
     map.on('click', function(e) {
         const lat = e.latlng.lat;
         const lng = e.latlng.lng;
@@ -430,39 +572,23 @@ function initializeLocationPicker() {
         }
         
         marker = L.marker([lat, lng]).addTo(map);
+        marker.openPopup();
         
         // Reverse geocode to get address
         reverseGeocode(lat, lng);
     });
-    
-    // Try to get user's current location
-    if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(
-            function(position) {
-                const lat = position.coords.latitude;
-                const lng = position.coords.longitude;
-                
-                map.setView([lat, lng], 15);
-                
-                // Add marker at current location
-                marker = L.marker([lat, lng]).addTo(map);
-                document.getElementById('latitudeInput').value = lat.toFixed(6);
-                document.getElementById('longitudeInput').value = lng.toFixed(6);
-                
-                reverseGeocode(lat, lng);
-            },
-            function(error) {
-                console.log('Geolocation error:', error);
-                showNotification('Unable to get your location. Please select manually on map.', 'warning');
-            }
-        );
-    }
 }
 
 function searchLocation() {
     const query = document.getElementById('locationSearch').value.trim();
     if (!query) {
         showNotification('Please enter a location to search.', 'warning');
+        return;
+    }
+    
+    // Ensure map is initialized
+    if (!map) {
+        showNotification('Map is still loading. Please wait a moment and try again.', 'warning');
         return;
     }
     
@@ -482,6 +608,7 @@ function searchLocation() {
                 }
                 
                 marker = L.marker([lat, lng]).addTo(map);
+                marker.openPopup();
                 document.getElementById('latitudeInput').value = lat.toFixed(6);
                 document.getElementById('longitudeInput').value = lng.toFixed(6);
                 document.getElementById('addressInput').value = data[0].display_name;
@@ -497,17 +624,25 @@ function searchLocation() {
         });
 }
 
-function reverseGeocode(lat, lng) {
+function reverseGeocode(lat, lng, callback) {
     fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`)
         .then(response => response.json())
         .then(data => {
             if (data && data.display_name) {
                 document.getElementById('addressInput').value = data.display_name;
+                console.log('Address filled:', data.display_name);
+                if (callback && typeof callback === 'function') {
+                    callback(data.display_name);
+                }
             }
         })
         .catch(error => {
             console.error('Reverse geocoding error:', error);
-            document.getElementById('addressInput').value = `Latitude: ${lat}, Longitude: ${lng}`;
+            const fallbackAddress = `Location: ${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+            document.getElementById('addressInput').value = fallbackAddress;
+            if (callback && typeof callback === 'function') {
+                callback(fallbackAddress);
+            }
         });
 }
 </script>
