@@ -1,8 +1,9 @@
 from flask import Blueprint, render_template, redirect, url_for, flash, request, current_app
 from flask_login import login_user, logout_user, login_required, current_user
 from urllib.parse import urlparse
+from datetime import datetime
 from extensions import db
-from models.models import User
+from models.models import User, Complaint
 from routes.forms import LoginForm, RegistrationForm
 
 auth_bp = Blueprint('auth', __name__)
@@ -64,7 +65,8 @@ def register():
             username=form.username.data,
             email=form.email.data,
             is_government=form.user_type.data == 'government',
-            govt_official_id=form.govt_official_id.data if form.user_type.data == 'government' else None
+            govt_official_id=form.govt_official_id.data if form.user_type.data == 'government' else None,
+            created_at=datetime.now()
         )
         user.set_password(form.password.data)
 
@@ -81,3 +83,32 @@ def register():
 def logout():
     logout_user()
     return redirect(url_for('index'))
+
+
+@auth_bp.route('/profile')
+@login_required
+def profile():
+    if current_user.is_admin or current_user.is_government:
+        total_issues = Complaint.query.count()
+        pending_issues = Complaint.query.filter_by(status='Pending').count()
+        in_progress_issues = Complaint.query.filter_by(status='In Progress').count()
+        resolved_issues = Complaint.query.filter_by(status='Resolved').count()
+        recent_complaints = Complaint.query.order_by(Complaint.created_at.desc()).limit(5).all()
+        role_label = 'Government Official' if current_user.is_government else 'Administrator'
+    else:
+        total_issues = Complaint.query.filter_by(user_id=current_user.id).count()
+        pending_issues = Complaint.query.filter_by(user_id=current_user.id, status='Pending').count()
+        in_progress_issues = Complaint.query.filter_by(user_id=current_user.id, status='In Progress').count()
+        resolved_issues = Complaint.query.filter_by(user_id=current_user.id, status='Resolved').count()
+        recent_complaints = Complaint.query.filter_by(user_id=current_user.id).order_by(Complaint.created_at.desc()).limit(5).all()
+        role_label = 'Citizen'
+
+    return render_template(
+        'profile.html',
+        role_label=role_label,
+        total_issues=total_issues,
+        pending_issues=pending_issues,
+        in_progress_issues=in_progress_issues,
+        resolved_issues=resolved_issues,
+        recent_complaints=recent_complaints,
+    )

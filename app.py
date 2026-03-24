@@ -2,6 +2,7 @@ import os
 from jinja2 import TemplateNotFound
 from flask import Flask, render_template, send_from_directory
 from config import Config
+from models.models import Complaint
 
 # singletons come from extensions.py
 from extensions import db, login_manager
@@ -62,7 +63,18 @@ def create_app(config_class=Config):
     # basic site routes (you can move these into blueprints later)
     @app.route("/")
     def index():
-        return render_template("index.html")
+        total_issues = Complaint.query.count()
+        pending_issues = Complaint.query.filter_by(status='Pending').count()
+        in_progress_issues = Complaint.query.filter_by(status='In Progress').count()
+        resolved_issues = Complaint.query.filter_by(status='Resolved').count()
+
+        return render_template(
+            "index.html",
+            total_issues=total_issues,
+            pending_issues=pending_issues,
+            in_progress_issues=in_progress_issues,
+            resolved_issues=resolved_issues,
+        )
 
     @app.route("/about")
     def about():

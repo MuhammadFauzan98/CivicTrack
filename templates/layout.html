@@ -46,11 +46,11 @@
                     {% endif %}
                     
                     <div class="user-dropdown">
-                        <button class="user-btn">
+                        <button class="user-btn" type="button" aria-expanded="false" aria-haspopup="true">
                             <i class="fas fa-user-circle"></i> {{ current_user.username }}
                         </button>
                         <div class="dropdown-content">
-                            <a href="{{ url_for('complaints.dashboard') }}"><i class="fas fa-user"></i> Profile</a>
+                            <a href="{{ url_for('auth.profile') }}"><i class="fas fa-user"></i> Profile</a>
                             <a href="{{ url_for('auth.logout') }}"><i class="fas fa-sign-out-alt"></i> Logout</a>
                         </div>
                     </div>

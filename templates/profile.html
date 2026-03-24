@@ -1,0 +1,98 @@
+{% extends "layout.html" %}
+
+{% block title %}CivicTrack - Profile{% endblock %}
+
+{% block content %}
+<section class="card" style="margin-top: 20px;">
+    <div class="card-header">
+        <h2><i class="fas fa-user-circle"></i> My Profile</h2>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px;">
+        <div>
+            <p><strong>Username:</strong> {{ current_user.username }}</p>
+            <p><strong>Email:</strong> {{ current_user.email }}</p>
+            <p><strong>Role:</strong> {{ role_label }}</p>
+            {% if current_user.department %}
+            <p><strong>Department:</strong> {{ current_user.department.name }}</p>
+            {% endif %}
+            {% if current_user.govt_official_id %}
+            <p><strong>Official ID:</strong> {{ current_user.govt_official_id }}</p>
+            {% endif %}
+            <p><strong>Joined:</strong> {{ current_user.created_at.strftime('%Y-%m-%d %I:%M %p') if current_user.created_at else 'Not available' }}</p>
+        </div>
+        <div>
+            <a href="{{ url_for('auth.logout') }}" class="btn btn-outline">
+                <i class="fas fa-sign-out-alt"></i> Logout
+            </a>
+        </div>
+    </div>
+</section>
+
+<section class="stats-container">
+    <div class="stat-card total">
+        <i class="fas fa-clipboard-list"></i>
+        <span class="stat-number">{{ total_issues }}</span>
+        <span class="stat-label">Total Issues</span>
+    </div>
+
+    <div class="stat-card pending">
+        <i class="fas fa-clock"></i>
+        <span class="stat-number">{{ pending_issues }}</span>
+        <span class="stat-label">Pending</span>
+    </div>
+
+    <div class="stat-card in-progress">
+        <i class="fas fa-tools"></i>
+        <span class="stat-number">{{ in_progress_issues }}</span>
+        <span class="stat-label">In Progress</span>
+    </div>
+
+    <div class="stat-card resolved">
+        <i class="fas fa-check-circle"></i>
+        <span class="stat-number">{{ resolved_issues }}</span>
+        <span class="stat-label">Resolved</span>
+    </div>
+</section>
+
+<section class="card">
+    <div class="card-header">
+        <h3><i class="fas fa-history"></i> Recent Issues</h3>
+    </div>
+
+    {% if recent_complaints %}
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Title</th>
+                    <th>Category</th>
+                    <th>Status</th>
+                    <th>Priority</th>
+                    <th>Date</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for complaint in recent_complaints %}
+                <tr>
+                    <td>#{{ complaint.id }}</td>
+                    <td>{{ complaint.title }}</td>
+                    <td>{{ complaint.category|replace('_', ' ')|title }}</td>
+                    <td>
+                        <span class="status-badge {% if complaint.status == 'Pending' %}status-pending{% elif complaint.status == 'In Progress' %}status-in-progress{% else %}status-resolved{% endif %}">
+                            {{ complaint.status }}
+                        </span>
+                    </td>
+                    <td>{{ complaint.priority }}</td>
+                    <td>{{ complaint.created_at.strftime('%Y-%m-%d') }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <p>No issues found yet.</p>
+    {% endif %}
+</section>
+{% endblock %}

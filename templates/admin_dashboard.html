@@ -120,7 +120,7 @@
             <a href="{{ url_for('complaints.new_complaint') }}" class="btn btn-success">
                 <i class="fas fa-plus-circle"></i> Create Test Complaint
             </a>
-            <button class="btn btn-outline" id="refreshData">
+            <button type="button" class="btn btn-outline" id="refreshData">
                 <i class="fas fa-sync-alt"></i> Refresh
             </button>
         </div>
@@ -199,11 +199,11 @@
             <div class="department-header">
                 <div>
                     <h3>{{ dept.name }}</h3>
-                    <p>{{ dept.count }} issues assigned</p>
+                    <p class="dept-issue-count">{{ dept.count }} issues assigned</p>
                 </div>
-                <a href="#" class="btn btn-outline btn-small">
+                <button type="button" class="btn btn-outline btn-small view-dept-btn" data-dept="{{ dept.name }}">
                     <i class="fas fa-eye"></i> View All
-                </a>
+                </button>
             </div>
             
             <div class="progress-bar">
@@ -212,7 +212,7 @@
             
             <div style="display: flex; justify-content: space-between; margin-top: 5px; font-size: 12px; color: var(--gray);">
                 <span>0%</span>
-                <span>{% if total > 0 %}{{ (dept.count / total * 100)|round|int }}{% else %}0{% endif %}%</span>
+                <span class="dept-percent-label">{% if total > 0 %}{{ (dept.count / total * 100)|round|int }}{% else %}0{% endif %}%</span>
                 <span>100%</span>
             </div>
         </div>
@@ -230,6 +230,10 @@
                 </button>
             </div>
         </div>
+
+        <p id="filteredSummary" style="margin-bottom: 12px; color: var(--gray); font-size: 14px;">
+            Showing 0 of 0 complaints
+        </p>
         
         <div class="table-container">
             <table id="complaintsTable">
@@ -281,8 +285,8 @@
                             </span>
                         </td>
                         <td>
-                            {% if complaint.citizen %}
-                                {{ complaint.citizen.username }}
+                            {% if complaint.reporter %}
+                                {{ complaint.reporter.username }}
                             {% else %}
                                 Anonymous
                             {% endif %}
@@ -369,20 +373,27 @@ document.addEventListener('DOMContentLoaded', function() {
     const priorityFilter = document.getElementById('priorityFilter');
     const dateFrom = document.getElementById('dateFrom');
     const dateTo = document.getElementById('dateTo');
+    const normalize = (value) => (value || '').trim().toLowerCase();
     
     const filterTable = () => {
         const rows = document.querySelectorAll('#complaintsTable tbody tr');
-        const deptValue = deptFilter.value;
-        const statusValue = statusFilter.value;
-        const priorityValue = priorityFilter.value;
+        const deptCards = document.querySelectorAll('.department-card');
+        const filteredSummary = document.getElementById('filteredSummary');
+        const deptValue = normalize(deptFilter.value);
+        const statusValue = normalize(statusFilter.value);
+        const priorityValue = normalize(priorityFilter.value);
         const dateFromValue = dateFrom.value;
         const dateToValue = dateTo.value;
+        const hasAdditionalFilters = Boolean(statusValue || priorityValue || dateFromValue || dateToValue);
+
+        const visibleCountsByDept = {};
+        let totalVisible = 0;
         
         rows.forEach(row => {
             let show = true;
-            const dept = row.getAttribute('data-dept');
-            const status = row.getAttribute('data-status');
-            const priority = row.getAttribute('data-priority');
+            const dept = normalize(row.getAttribute('data-dept'));
+            const status = normalize(row.getAttribute('data-status'));
+            const priority = normalize(row.getAttribute('data-priority'));
             const date = row.getAttribute('data-date');
             
             if (deptValue && dept !== deptValue) show = false;
@@ -392,7 +403,46 @@ document.addEventListener('DOMContentLoaded', function() {
             if (dateToValue && date > dateToValue) show = false;
             
             row.style.display = show ? '' : 'none';
+
+            if (show) {
+                totalVisible += 1;
+                visibleCountsByDept[dept] = (visibleCountsByDept[dept] || 0) + 1;
+            }
         });
+
+        deptCards.forEach(card => {
+            const deptName = card.getAttribute('data-dept');
+            const normalizedDeptName = normalize(deptName);
+            const visibleCount = visibleCountsByDept[normalizedDeptName] || 0;
+            const percent = totalVisible > 0 ? Math.round((visibleCount / totalVisible) * 100) : 0;
+
+            const issueCountEl = card.querySelector('.dept-issue-count');
+            const progressFillEl = card.querySelector('.progress-fill');
+            const percentLabelEl = card.querySelector('.dept-percent-label');
+
+            if (issueCountEl) {
+                issueCountEl.textContent = `${visibleCount} issues assigned`;
+            }
+            if (progressFillEl) {
+                progressFillEl.style.width = `${percent}%`;
+            }
+            if (percentLabelEl) {
+                percentLabelEl.textContent = `${percent}%`;
+            }
+
+            let showCard = true;
+            if (deptValue) {
+                showCard = normalizedDeptName === deptValue;
+            } else if (hasAdditionalFilters) {
+                showCard = visibleCount > 0;
+            }
+
+            card.style.display = showCard ? '' : 'none';
+        });
+
+        if (filteredSummary) {
+            filteredSummary.textContent = `Showing ${totalVisible} of ${rows.length} complaints`;
+        }
     };
     
     if (deptFilter) deptFilter.addEventListener('change', filterTable);
@@ -423,12 +473,27 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('refreshData')?.addEventListener('click', function() {
         showNotification('Refreshing data...', 'info');
         setTimeout(() => {
-            location.reload();
-        }, 1000);
+            window.location.replace(window.location.pathname);
+        }, 300);
     });
     
     // Initialize filters
     filterTable();
+
+    // Department "View All" buttons
+    document.querySelectorAll('.view-dept-btn').forEach(button => {
+        button.addEventListener('click', function() {
+            const selectedDept = this.getAttribute('data-dept');
+            if (deptFilter) {
+                const optionToSelect = Array.from(deptFilter.options).find(
+                    (opt) => normalize(opt.value) === normalize(selectedDept)
+                );
+                deptFilter.value = optionToSelect ? optionToSelect.value : selectedDept;
+                filterTable();
+                document.getElementById('complaintsTable')?.scrollIntoView({ behavior: 'smooth' });
+            }
+        });
+    });
 });
 </script>
 {% endblock %}

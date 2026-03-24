@@ -34,25 +34,25 @@
     <div class="stats-container">
         <div class="stat-card total">
             <i class="fas fa-clipboard-list"></i>
-            <span class="stat-number">1,247</span>
+            <span class="stat-number">{{ total_issues }}</span>
             <span class="stat-label">Total Issues Reported</span>
         </div>
         
         <div class="stat-card pending">
             <i class="fas fa-clock"></i>
-            <span class="stat-number">189</span>
+            <span class="stat-number">{{ pending_issues }}</span>
             <span class="stat-label">Pending Issues</span>
         </div>
         
         <div class="stat-card in-progress">
             <i class="fas fa-tools"></i>
-            <span class="stat-number">356</span>
+            <span class="stat-number">{{ in_progress_issues }}</span>
             <span class="stat-label">In Progress</span>
         </div>
         
         <div class="stat-card resolved">
             <i class="fas fa-check-circle"></i>
-            <span class="stat-number">702</span>
+            <span class="stat-number">{{ resolved_issues }}</span>
             <span class="stat-label">Resolved Issues</span>
         </div>
     </div>

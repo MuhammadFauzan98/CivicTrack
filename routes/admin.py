@@ -3,7 +3,6 @@ from flask_login import login_required, current_user
 from extensions import db
 from models.models import Complaint, User, Department, Feedback
 from datetime import datetime, timedelta
-import json
 import io
 
 admin_bp = Blueprint('admin', __name__)
@@ -17,24 +16,32 @@ def restrict_to_admin():
 @admin_bp.route('/admin')
 @login_required
 def admin_dashboard():
-    # Get all complaints
+    # Get complaints (recent for table + all for accurate statistics)
     complaints = Complaint.query.order_by(Complaint.created_at.desc()).limit(50).all()
-    
+    all_complaints = Complaint.query.all()
+
     # Statistics
-    total_complaints = Complaint.query.count()
-    pending_complaints = Complaint.query.filter_by(status='Pending').count()
-    in_progress_complaints = Complaint.query.filter_by(status='In Progress').count()
-    resolved_complaints = Complaint.query.filter_by(status='Resolved').count()
-    
-    # Department-wise counts
-    departments = Department.query.all()
-    dept_stats = []
-    for dept in departments:
-        count = Complaint.query.filter_by(department_id=dept.id).count()
-        dept_stats.append({
-            'name': dept.name,
-            'count': count
-        })
+    total_complaints = len(all_complaints)
+    pending_complaints = len([c for c in all_complaints if c.status == 'Pending'])
+    in_progress_complaints = len([c for c in all_complaints if c.status == 'In Progress'])
+    resolved_complaints = len([c for c in all_complaints if c.status == 'Resolved'])
+
+    # Department-wise counts (include unassigned complaints as well)
+    dept_counts = {}
+    for complaint in all_complaints:
+        dept_name = complaint.department.name if complaint.department else 'Unassigned'
+        dept_counts[dept_name] = dept_counts.get(dept_name, 0) + 1
+
+    # Ensure all departments appear even when they currently have zero complaints.
+    for dept in Department.query.all():
+        dept_counts.setdefault(dept.name, 0)
+
+    dept_stats = [
+        {'name': dept_name, 'count': count}
+        for dept_name, count in dept_counts.items()
+    ]
+
+    dept_stats.sort(key=lambda item: item['name'] != 'Unassigned')
     
     # Recent feedback
     recent_feedback = Feedback.query.order_by(Feedback.created_at.desc()).limit(5).all()
@@ -82,6 +89,21 @@ def manage_complaint(id):
                 complaint.department_id = new_dept_id
                 db.session.commit()
                 flash('Complaint reassigned', 'success')
+
+        elif action == 'assign_staff':
+            assigned_to = request.form.get('assigned_to')
+            if assigned_to:
+                staff_user = User.query.filter_by(id=assigned_to, is_government=True).first()
+                if staff_user:
+                    complaint.assigned_to = staff_user.id
+                    db.session.commit()
+                    flash(f'Complaint assigned to {staff_user.username}', 'success')
+                else:
+                    flash('Selected staff member is invalid.', 'danger')
+            else:
+                complaint.assigned_to = None
+                db.session.commit()
+                flash('Staff assignment cleared.', 'info')
     
     departments = Department.query.all()
     government_users = User.query.filter_by(is_government=True).all()
@@ -94,6 +116,8 @@ def manage_complaint(id):
 @admin_bp.route('/admin/analytics')
 @login_required
 def analytics():
+    complaints = Complaint.query.all()
+
     # Get data for charts
     complaints_by_category = db.session.query(
         Complaint.category,
@@ -104,17 +128,26 @@ def analytics():
         Complaint.status,
         db.func.count(Complaint.id)
     ).group_by(Complaint.status).all()
-    
-    complaints_by_month = db.session.query(
-        db.func.strftime('%Y-%m', Complaint.created_at),
-        db.func.count(Complaint.id)
-    ).group_by(db.func.strftime('%Y-%m', Complaint.created_at))\
-     .order_by(db.func.strftime('%Y-%m', Complaint.created_at)).all()
+
+    # Build monthly trend in Python for DB portability.
+    monthly_counts = {}
+    for comp in complaints:
+        month_key = comp.created_at.strftime('%Y-%m')
+        monthly_counts[month_key] = monthly_counts.get(month_key, 0) + 1
+
+    complaints_by_month = sorted(monthly_counts.items(), key=lambda x: x[0])
     
     # Prepare data for JSON response
     category_data = [{'category': cat, 'count': cnt} for cat, cnt in complaints_by_category]
     status_data = [{'status': stat, 'count': cnt} for stat, cnt in complaints_by_status]
     monthly_data = [{'month': month, 'count': cnt} for month, cnt in complaints_by_month]
+
+    # Department performance chart data.
+    dept_performance = []
+    departments = Department.query.all()
+    for dept in departments:
+        count = Complaint.query.filter_by(department_id=dept.id).count()
+        dept_performance.append({'department': dept.name, 'count': count})
     
     # Get heatmap data (all complaints with coordinates)
     heatmap_data = []
@@ -131,12 +164,24 @@ def analytics():
             'category': comp.category,
             'title': comp.title
         })
+
+    total_count = len(complaints)
+    resolved_count = len([c for c in complaints if c.status == 'Resolved'])
+    resolution_rate = round((resolved_count / total_count * 100), 1) if total_count else 0
+    active_citizens = len({c.user_id for c in complaints if c.user_id})
+
+    ratings = [fb.rating for fb in Feedback.query.filter(Feedback.rating.isnot(None)).all()]
+    avg_rating = round(sum(ratings) / len(ratings), 1) if ratings else 0
     
     return render_template('analytics.html',
-                          category_data=json.dumps(category_data),
-                          status_data=json.dumps(status_data),
-                          monthly_data=json.dumps(monthly_data),
-                          heatmap_data=json.dumps(heatmap_data))
+                          category_data=category_data,
+                          status_data=status_data,
+                          monthly_data=monthly_data,
+                          heatmap_data=heatmap_data,
+                          dept_performance=dept_performance,
+                          resolution_rate=resolution_rate,
+                          active_citizens=active_citizens,
+                          avg_rating=avg_rating)
 
 @admin_bp.route('/admin/api/analytics')
 @login_required
@@ -156,18 +201,31 @@ def analytics_api():
     
     avg_resolution_time = sum(resolution_times) / len(resolution_times) if resolution_times else 0
     
-    # Category distribution for current month
-    from datetime import datetime
-    current_month = datetime.now().strftime('%Y-%m')
-    monthly_categories = db.session.query(
-        Complaint.category,
-        db.func.count(Complaint.id)
-    ).filter(db.func.strftime('%Y-%m', Complaint.created_at) == current_month)\
-     .group_by(Complaint.category).all()
+    total_complaints = Complaint.query.count()
+    resolved_count = Complaint.query.filter_by(status='Resolved').count()
+    resolution_rate = round((resolved_count / total_complaints * 100), 1) if total_complaints else 0
+
+    active_citizens = db.session.query(Complaint.user_id).distinct().count()
+
+    ratings = [fb.rating for fb in Feedback.query.filter(Feedback.rating.isnot(None)).all()]
+    avg_rating = round(sum(ratings) / len(ratings), 1) if ratings else 0
+
+    # Category distribution for current month (Python-side for portability)
+    now = datetime.now()
+    current_month = now.month
+    current_year = now.year
+    monthly_categories = {}
+    current_month_complaints = Complaint.query.all()
+    for comp in current_month_complaints:
+        if comp.created_at.month == current_month and comp.created_at.year == current_year:
+            monthly_categories[comp.category] = monthly_categories.get(comp.category, 0) + 1
     
     return jsonify({
         'avg_resolution_time': round(avg_resolution_time, 1),
-        'monthly_categories': dict(monthly_categories)
+        'resolution_rate': resolution_rate,
+        'active_citizens': active_citizens,
+        'avg_rating': avg_rating,
+        'monthly_categories': monthly_categories
     })
 
 @admin_bp.route('/admin/export/pdf')

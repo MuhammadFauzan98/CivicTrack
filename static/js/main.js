@@ -45,6 +45,33 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     }
+
+    // User dropdown toggle (works on click/touch and keyboard)
+    const userDropdown = document.querySelector('.user-dropdown');
+    const userBtn = document.querySelector('.user-btn');
+    if (userDropdown && userBtn) {
+        userBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+
+            const isOpen = userDropdown.classList.toggle('open');
+            userBtn.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+        });
+
+        document.addEventListener('click', function(e) {
+            if (!userDropdown.contains(e.target)) {
+                userDropdown.classList.remove('open');
+                userBtn.setAttribute('aria-expanded', 'false');
+            }
+        });
+
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                userDropdown.classList.remove('open');
+                userBtn.setAttribute('aria-expanded', 'false');
+            }
+        });
+    }
     
     // Initialize tooltips
     const tooltips = document.querySelectorAll('[data-tooltip]');

@@ -187,8 +187,8 @@
                 <div class="detail-row">
                     <div class="detail-label">Citizen:</div>
                     <div class="detail-value">
-                        {% if complaint.citizen %}
-                            {{ complaint.citizen.username }} ({{ complaint.citizen.email }})
+                        {% if complaint.reporter %}
+                            {{ complaint.reporter.username }} ({{ complaint.reporter.email }})
                         {% else %}
                             Anonymous
                         {% endif %}
@@ -238,7 +238,7 @@
                         <div class="timeline-date">{{ complaint.created_at.strftime('%Y-%m-%d %H:%M') }}</div>
                         <div class="timeline-content">
                             <strong>Complaint Created</strong>
-                            <p>Complaint submitted by {% if complaint.citizen %}{{ complaint.citizen.username }}{% else %}Anonymous{% endif %}</p>
+                            <p>Complaint submitted by {% if complaint.reporter %}{{ complaint.reporter.username }}{% else %}Anonymous{% endif %}</p>
                         </div>
                     </div>
                     
@@ -391,7 +391,7 @@
                         <i class="fas fa-times-circle"></i> Reject Complaint
                     </button>
                     
-                    <a href="mailto:{% if complaint.citizen %}{{ complaint.citizen.email }}{% endif %}?subject=Update on Complaint #{{ complaint.id }}" 
+                    <a href="mailto:{% if complaint.reporter %}{{ complaint.reporter.email }}{% endif %}?subject=Update on Complaint #{{ complaint.id }}" 
                        class="btn btn-outline">
                         <i class="fas fa-envelope"></i> Contact Citizen
                     </a>

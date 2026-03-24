@@ -3,22 +3,120 @@
 
 {% block title %}Features - CivicTrack{% endblock %}
 
+{% block extra_css %}
+<style>
+  .features-page {
+    max-width: 980px;
+    margin: 32px auto 10px;
+  }
+
+  .features-hero {
+    background: linear-gradient(135deg, var(--primary), var(--secondary));
+    color: white;
+    border-radius: 14px;
+    padding: 34px 28px;
+    box-shadow: var(--shadow);
+    margin-bottom: 26px;
+  }
+
+  .features-hero h1 {
+    color: white;
+    font-size: clamp(2rem, 3.5vw, 3rem);
+    line-height: 1.2;
+    margin-bottom: 10px;
+  }
+
+  .features-hero p {
+    color: rgba(255, 255, 255, 0.92);
+    font-size: clamp(1.05rem, 1.6vw, 1.3rem);
+    margin-bottom: 0;
+    max-width: 760px;
+  }
+
+  .feature-list-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 18px;
+    margin-bottom: 22px;
+  }
+
+  .feature-item {
+    background: white;
+    border-radius: 12px;
+    border: 1px solid #e8edf2;
+    box-shadow: var(--shadow);
+    padding: 20px;
+  }
+
+  .feature-item h3 {
+    font-size: clamp(1.1rem, 1.5vw, 1.35rem);
+    margin-bottom: 10px;
+    color: var(--primary);
+  }
+
+  .feature-item p {
+    font-size: clamp(1rem, 1.25vw, 1.1rem);
+    line-height: 1.7;
+    color: #43505c;
+    margin-bottom: 0;
+  }
+
+  .features-cta {
+    display: flex;
+    justify-content: flex-start;
+    margin-top: 8px;
+  }
+
+  @media (max-width: 768px) {
+    .features-hero {
+      padding: 24px 18px;
+    }
+
+    .features-cta .btn {
+      width: 100%;
+    }
+  }
+</style>
+{% endblock %}
+
 {% block content %}
-<div class="container">
-  <h1 class="mt-4">Dashboard Features</h1>
+<div class="features-page">
+  <section class="features-hero">
+    <h1>Powerful Features For Smarter Civic Management</h1>
+    <p>CivicTrack gives citizens and government teams a clear, fast, and transparent workflow for reporting, managing, and resolving urban issues.</p>
+  </section>
 
-  <p>This page highlights the key features of CivicTrack.</p>
+  <section class="feature-list-grid" aria-label="Key features">
+    <article class="feature-item">
+      <h3><i class="fas fa-map-marked-alt"></i> Smart Location Mapping</h3>
+      <p>Interactive maps with clustering, heatmaps, and geolocation help teams quickly identify issue hotspots and prioritize action.</p>
+    </article>
 
-  <ul>
-    <li>Interactive map with clustering, heatmap and geolocation</li>
-    <li>File complaints with photo uploads</li>
-    <li>Government admin dashboard for assignment & tracking</li>
-    <li>Analytics and export options</li>
-    <li>Authentication and role-based access</li>
-  </ul>
+    <article class="feature-item">
+      <h3><i class="fas fa-camera"></i> Complaint Filing With Images</h3>
+      <p>Citizens can file complaints with detailed descriptions, location details, and photo evidence for faster verification and response.</p>
+    </article>
 
-  <p>
-    <a class="btn btn-primary" href="{{ url_for('index') }}">Back to home</a>
-  </p>
+    <article class="feature-item">
+      <h3><i class="fas fa-tasks"></i> Government Workflow Dashboard</h3>
+      <p>Officials can assign issues, track statuses, set priorities, and monitor department performance from one centralized dashboard.</p>
+    </article>
+
+    <article class="feature-item">
+      <h3><i class="fas fa-chart-line"></i> Analytics And Reports</h3>
+      <p>Live charts, trends, and export-ready reports provide actionable insights for planning, accountability, and service improvement.</p>
+    </article>
+
+    <article class="feature-item">
+      <h3><i class="fas fa-shield-alt"></i> Secure Role-Based Access</h3>
+      <p>Authentication and role-based permissions ensure that each user sees and manages only the functions relevant to their responsibility.</p>
+    </article>
+  </section>
+
+  <div class="features-cta">
+    <a class="btn btn-primary" href="{{ url_for('index') }}">
+      <i class="fas fa-arrow-left"></i> Back To Home
+    </a>
+  </div>
 </div>
 {% endblock %}

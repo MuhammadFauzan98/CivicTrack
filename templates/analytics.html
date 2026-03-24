@@ -6,7 +6,7 @@
 <style>
     .analytics-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+        grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
         gap: 20px;
         margin-bottom: 30px;
     }
@@ -16,14 +16,40 @@
         border-radius: var(--radius);
         box-shadow: var(--shadow);
         padding: 20px;
-        height: 350px;
+        height: 380px;
+        display: flex;
+        flex-direction: column;
     }
     
     .chart-header {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        margin-bottom: 20px;
+        margin-bottom: 12px;
+        gap: 10px;
+        flex-wrap: wrap;
+    }
+
+    .chart-canvas-wrap {
+        position: relative;
+        flex: 1;
+        min-height: 0;
+        width: 100%;
+    }
+
+    .chart-canvas-wrap canvas {
+        width: 100% !important;
+        height: 100% !important;
+    }
+
+    @media (max-width: 768px) {
+        .analytics-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .chart-card {
+            height: 340px;
+        }
     }
     
     .time-filter {
@@ -121,10 +147,10 @@
     <div class="card-header">
         <h1><i class="fas fa-chart-bar"></i> Analytics Dashboard</h1>
         <div style="display: flex; gap: 10px;">
-            <button class="btn btn-primary" id="refreshAnalytics">
+            <button type="button" class="btn btn-primary" id="refreshAnalytics">
                 <i class="fas fa-sync-alt"></i> Refresh
             </button>
-            <button class="btn btn-outline" id="downloadReport">
+            <button type="button" class="btn btn-outline" id="downloadReport">
                 <i class="fas fa-download"></i> Download Report
             </button>
         </div>
@@ -181,7 +207,9 @@
                     <option value="doughnut">Doughnut Chart</option>
                 </select>
             </div>
-            <canvas id="categoryChart"></canvas>
+            <div class="chart-canvas-wrap">
+                <canvas id="categoryChart"></canvas>
+            </div>
         </div>
         
         <div class="chart-card">
@@ -193,7 +221,9 @@
                     <option value="bar">Bar Chart</option>
                 </select>
             </div>
-            <canvas id="statusChart"></canvas>
+            <div class="chart-canvas-wrap">
+                <canvas id="statusChart"></canvas>
+            </div>
         </div>
         
         <div class="chart-card">
@@ -204,7 +234,9 @@
                     <option value="bar">Bar Chart</option>
                 </select>
             </div>
-            <canvas id="monthlyTrendChart"></canvas>
+            <div class="chart-canvas-wrap">
+                <canvas id="monthlyTrendChart"></canvas>
+            </div>
         </div>
         
         <div class="chart-card">
@@ -215,7 +247,9 @@
                     <option value="radar">Radar Chart</option>
                 </select>
             </div>
-            <canvas id="departmentChart"></canvas>
+            <div class="chart-canvas-wrap">
+                <canvas id="departmentChart"></canvas>
+            </div>
         </div>
     </div>
     
@@ -329,13 +363,16 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Refresh button
     document.getElementById('refreshAnalytics')?.addEventListener('click', function() {
-        loadAnalyticsData();
-        showNotification('Analytics data refreshed.', 'success');
+        showNotification('Refreshing analytics...', 'info');
+        setTimeout(() => {
+            window.location.replace(window.location.pathname);
+        }, 250);
     });
     
     // Download report button
     document.getElementById('downloadReport')?.addEventListener('click', function() {
-        showNotification('Generating analytics report... This feature is under development.', 'info');
+        showNotification('Generating report...', 'info');
+        window.location.href = '{{ url_for("admin.export_pdf") }}';
     });
 });
 
@@ -460,26 +497,37 @@ function initializeHeatmap() {
     }).addTo(heatmap);
     
     // Add heatmap layer (simulated data)
-    const heatmapData = {{ heatmap_data|safe }};
+    const heatmapData = {{ heatmap_data|tojson }};
     
     if (heatmapData && heatmapData.length > 0) {
-        // Create heatmap layer
-        const heat = L.heatLayer(heatmapData.map(point => {
-            return [point.lat, point.lng, point.weight || 1];
-        }), {
-            radius: 25,
-            blur: 15,
-            maxZoom: 17,
-            gradient: {
-                0.2: '#ffffcc',
-                0.4: '#ffeda0',
-                0.6: '#fed976',
-                0.8: '#feb24c',
-                1.0: '#fd8d3c'
-            }
-        }).addTo(heatmap);
-        
-        // Fit bounds to show all heatmap points
+        if (typeof L.heatLayer === 'function') {
+            L.heatLayer(heatmapData.map(point => {
+                return [point.lat, point.lng, point.weight || 1];
+            }), {
+                radius: 25,
+                blur: 15,
+                maxZoom: 17,
+                gradient: {
+                    0.2: '#ffffcc',
+                    0.4: '#ffeda0',
+                    0.6: '#fed976',
+                    0.8: '#feb24c',
+                    1.0: '#fd8d3c'
+                }
+            }).addTo(heatmap);
+        } else {
+            // Fallback: render circle markers when leaflet heat plugin is unavailable.
+            heatmapData.forEach(point => {
+                L.circleMarker([point.lat, point.lng], {
+                    radius: 6 + (point.weight || 1),
+                    color: '#fd8d3c',
+                    fillColor: '#feb24c',
+                    fillOpacity: 0.5,
+                    weight: 1
+                }).addTo(heatmap).bindPopup(`<strong>${point.title || 'Issue'}</strong><br>${point.category || ''}`);
+            });
+        }
+
         const bounds = L.latLngBounds(heatmapData.map(point => [point.lat, point.lng]));
         heatmap.fitBounds(bounds);
     }
@@ -492,9 +540,9 @@ function loadAnalyticsData() {
         .then(data => {
             // Update metrics
             document.getElementById('avgResolutionTime').textContent = data.avg_resolution_time || '--';
-            document.getElementById('resolutionRate').textContent = '85%'; // Mock data
-            document.getElementById('activeCitizens').textContent = '1,247'; // Mock data
-            document.getElementById('avgRating').textContent = '4.2'; // Mock data
+            document.getElementById('resolutionRate').textContent = `${data.resolution_rate ?? 0}%`;
+            document.getElementById('activeCitizens').textContent = data.active_citizens ?? 0;
+            document.getElementById('avgRating').textContent = data.avg_rating ?? 0;
             
             // Update insights
             document.getElementById('topIssueArea').textContent = 'Downtown District (Road Issues)';
@@ -513,7 +561,7 @@ function loadAnalyticsData() {
 function updateChartsWithData() {
     // Category Chart
     if (categoryChart) {
-        const categoryData = JSON.parse('{{ category_data|safe }}');
+        const categoryData = {{ category_data|tojson }};
         categoryChart.data.labels = categoryData.map(item => item.category);
         categoryChart.data.datasets[0].data = categoryData.map(item => item.count);
         categoryChart.update();
@@ -521,7 +569,7 @@ function updateChartsWithData() {
     
     // Status Chart
     if (statusChart) {
-        const statusData = JSON.parse('{{ status_data|safe }}');
+        const statusData = {{ status_data|tojson }};
         const statusLabels = ['Pending', 'In Progress', 'Resolved'];
         const statusValues = statusLabels.map(label => {
             const item = statusData.find(d => d.status === label);
@@ -533,16 +581,17 @@ function updateChartsWithData() {
     
     // Monthly Trend Chart
     if (monthlyTrendChart) {
-        const monthlyData = JSON.parse('{{ monthly_data|safe }}');
+        const monthlyData = {{ monthly_data|tojson }};
         monthlyTrendChart.data.labels = monthlyData.map(item => item.month);
         monthlyTrendChart.data.datasets[0].data = monthlyData.map(item => item.count);
         monthlyTrendChart.update();
     }
     
-    // Department Chart (mock data for now)
+    // Department Chart
     if (departmentChart) {
-        const deptLabels = ['Roads', 'Sanitation', 'Electricity', 'Water', 'Lighting', 'Emergency'];
-        const deptData = [45, 38, 22, 19, 15, 8];
+        const deptDataRaw = {{ dept_performance|tojson }};
+        const deptLabels = deptDataRaw.map(item => item.department);
+        const deptData = deptDataRaw.map(item => item.count);
         departmentChart.data.labels = deptLabels;
         departmentChart.data.datasets[0].data = deptData;
         departmentChart.update();
