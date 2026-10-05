@@ -34,6 +34,25 @@
         margin-top: 10px;
         display: none;
     }
+
+    .camera-container {
+        display: none;
+        margin-top: 15px;
+    }
+
+    .camera-preview {
+        width: 100%;
+        max-height: 320px;
+        background-color: #111;
+        border-radius: var(--radius);
+        object-fit: cover;
+    }
+
+    .camera-actions {
+        display: flex;
+        gap: 10px;
+        margin-top: 10px;
+    }
     
     .step-indicator {
         display: flex;
@@ -157,10 +176,26 @@
                     </div>
                     
                     <div class="form-group">
-                        <label class="form-label">Upload Photo (Optional)</label>
-                        {{ form.image(class="form-control", id="imageUpload", accept="image/*") }}
-                        <small class="text-muted">Max 5MB. Supported formats: JPG, PNG, GIF</small>
+                        <label class="form-label">Take Photo (Optional)</label>
+                        {{ form.image(class="form-control", id="imageUpload", accept="image/jpeg,image/png,image/gif", style="display: none;") }}
+                        <button type="button" class="btn btn-outline" id="openCameraBtn" onclick="openCamera()">
+                            <i class="fas fa-camera"></i> Open Camera
+                        </button>
+                        <small class="text-muted">Use your device camera to capture the problem. Max 5MB.</small>
+                        <div class="camera-container" id="cameraContainer">
+                            <video id="cameraPreview" class="camera-preview" autoplay playsinline></video>
+                            <canvas id="cameraCanvas" style="display: none;"></canvas>
+                            <div class="camera-actions">
+                                <button type="button" class="btn btn-primary" id="capturePhotoBtn" onclick="capturePhoto()">
+                                    <i class="fas fa-camera"></i> Capture Photo
+                                </button>
+                                <button type="button" class="btn btn-outline" onclick="closeCamera()">Close Camera</button>
+                            </div>
+                        </div>
                         <img id="imagePreview" class="image-preview" alt="Image preview">
+                        <button type="button" class="btn btn-outline btn-small" id="retakePhotoBtn" onclick="retakePhoto()" style="display: none; margin-top: 10px;">
+                            <i class="fas fa-redo"></i> Retake Photo
+                        </button>
                     </div>
                     
                     <div class="form-navigation">
@@ -285,27 +320,89 @@ let currentStep = 1;
 let map = null;
 let marker = null;
 let userLocationDetected = false;
+let cameraStream = null;
 
 document.addEventListener('DOMContentLoaded', function() {
-    // Image preview
-    document.getElementById('imageUpload').addEventListener('change', function(e) {
-        const file = e.target.files[0];
-        if (file) {
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                const preview = document.getElementById('imagePreview');
-                preview.src = e.target.result;
-                preview.style.display = 'block';
-            }
-            reader.readAsDataURL(file);
-        }
-    });
-    
     // Auto-detect user location immediately on page load
     detectUserLocationOnLoad();
     
     // Map will be initialized when user clicks Next to go to step 2
 });
+
+async function openCamera() {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        showNotification('Camera access is not supported by this browser.', 'warning');
+        return;
+    }
+
+    try {
+        cameraStream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: { ideal: 'environment' } },
+            audio: false
+        });
+
+        const cameraPreview = document.getElementById('cameraPreview');
+        cameraPreview.srcObject = cameraStream;
+        document.getElementById('cameraContainer').style.display = 'block';
+        document.getElementById('openCameraBtn').style.display = 'none';
+    } catch (error) {
+        showNotification('Camera access was denied or is unavailable. Please allow camera access and try again.', 'warning');
+    }
+}
+
+function closeCamera() {
+    if (cameraStream) {
+        cameraStream.getTracks().forEach(track => track.stop());
+        cameraStream = null;
+    }
+
+    const cameraPreview = document.getElementById('cameraPreview');
+    cameraPreview.srcObject = null;
+    document.getElementById('cameraContainer').style.display = 'none';
+    document.getElementById('openCameraBtn').style.display = 'inline-block';
+}
+
+function capturePhoto() {
+    const cameraPreview = document.getElementById('cameraPreview');
+    const cameraCanvas = document.getElementById('cameraCanvas');
+
+    if (!cameraPreview.videoWidth || !cameraPreview.videoHeight) {
+        showNotification('The camera is still starting. Please try again in a moment.', 'warning');
+        return;
+    }
+
+    cameraCanvas.width = cameraPreview.videoWidth;
+    cameraCanvas.height = cameraPreview.videoHeight;
+    cameraCanvas.getContext('2d').drawImage(cameraPreview, 0, 0);
+    cameraCanvas.toBlob(function(blob) {
+        const file = new File([blob], `complaint-${Date.now()}.jpg`, { type: 'image/jpeg' });
+        const imageInput = document.getElementById('imageUpload');
+        const fileTransfer = new DataTransfer();
+        fileTransfer.items.add(file);
+        imageInput.files = fileTransfer.files;
+
+        const reader = new FileReader();
+        reader.onload = function(event) {
+            const imagePreview = document.getElementById('imagePreview');
+            imagePreview.src = event.target.result;
+            imagePreview.style.display = 'block';
+        };
+        reader.readAsDataURL(file);
+
+        document.getElementById('retakePhotoBtn').style.display = 'inline-block';
+        closeCamera();
+        showNotification('Photo captured successfully.', 'success');
+    }, 'image/jpeg', 0.9);
+}
+
+function retakePhoto() {
+    document.getElementById('imageUpload').value = '';
+    document.getElementById('imagePreview').style.display = 'none';
+    document.getElementById('retakePhotoBtn').style.display = 'none';
+    openCamera();
+}
+
+window.addEventListener('beforeunload', closeCamera);
 
 // Detect user location as soon as page loads (before step 2)
 function detectUserLocationOnLoad() {
